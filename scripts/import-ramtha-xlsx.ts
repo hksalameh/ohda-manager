@@ -12,6 +12,7 @@ import {
 } from "@prisma/client";
 
 const prisma = new PrismaClient();
+const RAMTHA_OPENING_DATE = "2025-12-31";
 
 type Args = {
   filePath: string;
@@ -21,11 +22,12 @@ type Args = {
 function parseArgs(): Args {
   const raw = process.argv.slice(2);
   const filePath = raw.find((arg) => !arg.startsWith("--"));
-  const dateArg = raw.find((arg) => arg.startsWith("--date="))?.split("=")[1];
+  const dateArg =
+    raw.find((arg) => arg.startsWith("--date="))?.split("=")[1] ?? RAMTHA_OPENING_DATE;
 
-  if (!filePath || !dateArg) {
+  if (!filePath) {
     throw new Error(
-      'الاستخدام: npm run import:ramtha -- "private-data/عهدة الرمثا 2025.xlsx" --date=YYYY-MM-DD',
+      'الاستخدام: npm run import:ramtha -- "private-data/عهدة الرمثا 2025.xlsx" [--date=YYYY-MM-DD]',
     );
   }
 
@@ -120,6 +122,10 @@ async function main() {
     const rawHeader = plainCellValue(headerRow.getCell(column));
     const name = normalizeLocationName(rawHeader);
     if (name) locationColumns.push({ column, name });
+  }
+
+  if (locationColumns.length === 0) {
+    throw new Error("لم يتم العثور على أعمدة توزيع المواقع والغرف في ملف Excel");
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -328,6 +334,7 @@ async function main() {
       centerId: center.id,
       snapshotId: snapshot.id,
       batchId: batch.id,
+      snapshotDate: snapshotDate.toISOString().slice(0, 10),
       totalRows,
       importedRows,
       warningRows,
