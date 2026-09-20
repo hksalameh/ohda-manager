@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { postInventoryDocument } from "@/lib/inventory-posting";
+import { ensureCustodyTemplate } from "@/lib/print-templates";
 
 function getText(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -63,10 +64,23 @@ export async function postCustodyDocument(formData: FormData) {
   const documentId = getText(formData, "documentId");
   if (!documentId) throw new Error("رقم المستند مفقود");
 
+  const document = await prisma.inventoryDocument.findUnique({ where: { id: documentId } });
+  if (!document) throw new Error("المستند غير موجود");
+  if (document.documentType !== DocumentType.CUSTODY) throw new Error("هذا المستند ليس سند عهدة");
+
+  if (!document.templateVersionId) {
+    const templateVersion = await ensureCustodyTemplate();
+    await prisma.inventoryDocument.update({
+      where: { id: documentId },
+      data: { templateVersionId: templateVersion.id },
+    });
+  }
+
   await postInventoryDocument(documentId);
   revalidatePath(`/documents/${documentId}`);
   revalidatePath("/employees");
   revalidatePath("/locations");
+  revalidatePath("/documents");
   redirect(`/documents/${documentId}`);
 }
 
