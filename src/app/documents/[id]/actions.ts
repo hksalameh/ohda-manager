@@ -12,6 +12,12 @@ function getText(formData: FormData, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function documentDetailPath(documentType: DocumentType, documentId: string) {
+  if (documentType === DocumentType.TRANSFER) return `/documents/transfer/${documentId}`;
+  if (documentType === DocumentType.RETURN) return `/documents/return/${documentId}`;
+  return `/documents/${documentId}`;
+}
+
 export async function saveCustodyDraft(formData: FormData) {
   const documentId = getText(formData, "documentId");
   if (!documentId) throw new Error("رقم المستند مفقود");
@@ -115,11 +121,13 @@ export async function postStockDocument(formData: FormData) {
   }
 
   await postInventoryDocument(documentId);
-  revalidatePath(`/documents/${documentId}`);
+  const detailPath = documentDetailPath(document.documentType, documentId);
+  revalidatePath(detailPath);
   revalidatePath("/documents");
   revalidatePath("/items");
   revalidatePath("/locations");
-  redirect(`/documents/${documentId}`);
+  revalidatePath("/employees");
+  redirect(detailPath);
 }
 
 export async function discardStockDraft(formData: FormData) {
