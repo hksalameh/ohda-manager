@@ -95,3 +95,35 @@ export async function discardCustodyDraft(formData: FormData) {
   await prisma.inventoryDocument.delete({ where: { id: documentId } });
   redirect("/employees");
 }
+
+export async function postStockDocument(formData: FormData) {
+  const documentId = getText(formData, "documentId");
+  if (!documentId) throw new Error("رقم المستند مفقود");
+
+  const document = await prisma.inventoryDocument.findUnique({ where: { id: documentId } });
+  if (!document) throw new Error("المستند غير موجود");
+  if (![DocumentType.RECEIPT, DocumentType.ISSUE, DocumentType.TRANSFER, DocumentType.RETURN, DocumentType.ADJUSTMENT].includes(document.documentType)) {
+    throw new Error("هذا النوع من المستندات لا يعتمد بهذه العملية");
+  }
+
+  await postInventoryDocument(documentId);
+  revalidatePath(`/documents/${documentId}`);
+  revalidatePath("/documents");
+  revalidatePath("/items");
+  revalidatePath("/locations");
+  redirect(`/documents/${documentId}`);
+}
+
+export async function discardStockDraft(formData: FormData) {
+  const documentId = getText(formData, "documentId");
+  if (!documentId) throw new Error("رقم المستند مفقود");
+
+  const document = await prisma.inventoryDocument.findUnique({ where: { id: documentId } });
+  if (!document) throw new Error("المستند غير موجود");
+  if (document.status !== DocumentStatus.DRAFT) throw new Error("لا يمكن حذف مستند تم اعتماده");
+  if (document.documentType === DocumentType.CUSTODY) throw new Error("استخدم عملية حذف مسودة العهدة");
+
+  await prisma.inventoryDocument.delete({ where: { id: documentId } });
+  revalidatePath("/documents");
+  redirect("/documents");
+}
