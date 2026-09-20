@@ -75,5 +75,5 @@ export async function createReturnDraftForLocation(formData: FormData) {
   });
 
   revalidatePath(`/employees/${employeeId}`);
-  redirect(`/documents/${document.id}`);
+  redirect(`/employees/${employeeId}/returns/${document.id}`);
 }
