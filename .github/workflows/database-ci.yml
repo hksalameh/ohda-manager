@@ -1,0 +1,49 @@
+name: Database CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "prisma/**"
+      - "scripts/**"
+      - "package.json"
+      - ".env.example"
+      - ".github/workflows/database-ci.yml"
+  pull_request:
+    paths:
+      - "prisma/**"
+      - "scripts/**"
+      - "package.json"
+      - ".env.example"
+      - ".github/workflows/database-ci.yml"
+
+jobs:
+  validate-database:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: file:./ci.db
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate Prisma schema
+        run: npm run db:validate
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Create clean SQLite database
+        run: |
+          rm -f prisma/ci.db prisma/ci.db-journal
+          npm run db:push -- --skip-generate
+
+      - name: Test Excel opening import
+        run: npm run test:db
