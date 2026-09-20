@@ -171,6 +171,28 @@ async function main() {
   assert(historicalPosted.status === DocumentStatus.POSTED, "يجب ترحيل المستند التاريخي كمرجع");
   assert((await getLocationItemBalance(item.id, store.id)) === 4, "المستند التاريخي المرجعي يجب ألا يغير الرصيد");
 
+  const adjustmentIn = await createDocument({
+    centerId: center.id,
+    type: DocumentType.ADJUSTMENT,
+    toLocationId: store.id,
+    itemId: item.id,
+    quantity: 2,
+    no: "ADJ-IN-1",
+  });
+  await postInventoryDocument(adjustmentIn.id);
+  assert((await getLocationItemBalance(item.id, store.id)) === 6, "تسوية الزيادة يجب أن ترفع رصيد المستودع إلى 6");
+
+  const adjustmentOut = await createDocument({
+    centerId: center.id,
+    type: DocumentType.ADJUSTMENT,
+    fromLocationId: store.id,
+    itemId: item.id,
+    quantity: 1,
+    no: "ADJ-OUT-1",
+  });
+  await postInventoryDocument(adjustmentOut.id);
+  assert((await getLocationItemBalance(item.id, store.id)) === 5, "تسوية النقص يجب أن تخفض رصيد المستودع إلى 5");
+
   const overIssue = await createDocument({
     centerId: center.id,
     type: DocumentType.ISSUE,
@@ -187,7 +209,7 @@ async function main() {
   }
   assert(issueRejected, "يجب رفض إخراج كمية أكبر من الرصيد");
 
-  console.log("نجحت اختبارات ترحيل حركات المخزون والعهدة.");
+  console.log("نجحت اختبارات ترحيل حركات المخزون والعهدة والتسويات.");
 }
 
 main()
