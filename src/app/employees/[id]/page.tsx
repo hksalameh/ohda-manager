@@ -16,7 +16,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         orderBy: { startsAt: "desc" },
         include: { location: true },
       },
-      documents: {
+      primaryDocuments: {
         where: { documentType: { in: ["CUSTODY", "RETURN"] } },
         orderBy: [{ documentDate: "desc" }, { createdAt: "desc" }],
         take: 100,
@@ -80,7 +80,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         </article>
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-500">سندات العهدة والإرجاع</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{employee.documents.length}</p>
+          <p className="mt-2 text-3xl font-bold text-slate-900">{employee.primaryDocuments.length}</p>
         </article>
       </div>
 
@@ -152,8 +152,21 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           <table className="min-w-[760px] w-full text-sm">
             <thead className="bg-slate-50 text-slate-600"><tr><th className="px-3 py-2 text-right">النوع</th><th className="px-3 py-2 text-right">التاريخ</th><th className="px-3 py-2 text-center">عدد المواد</th><th className="px-3 py-2 text-center">الحالة</th><th className="px-3 py-2"></th></tr></thead>
             <tbody className="divide-y divide-slate-100">
-              {employee.documents.map((document) => <tr key={document.id}><td className="px-3 py-2 font-medium">{document.documentType === "CUSTODY" ? "سند عهدة" : "إرجاع عهدة"}</td><td className="px-3 py-2">{document.documentDate.toLocaleDateString("ar-JO")}</td><td className="px-3 py-2 text-center">{document._count.lines}</td><td className="px-3 py-2 text-center">{document.status === "POSTED" ? "معتمد" : document.status === "DRAFT" ? "مسودة" : "ملغي"}</td><td className="px-3 py-2 text-left"><Link href={`/documents/${document.id}`} className="text-blue-700 underline">فتح</Link></td></tr>)}
-              {employee.documents.length === 0 ? <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-500">لا توجد سندات للموظف بعد.</td></tr> : null}
+              {employee.primaryDocuments.map((document) => {
+                const href = document.documentType === "RETURN"
+                  ? `/employees/${employee.id}/returns/${document.id}`
+                  : `/documents/${document.id}`;
+                return (
+                  <tr key={document.id}>
+                    <td className="px-3 py-2 font-medium">{document.documentType === "CUSTODY" ? "سند عهدة" : "إرجاع عهدة"}</td>
+                    <td className="px-3 py-2">{document.documentDate.toLocaleDateString("ar-JO")}</td>
+                    <td className="px-3 py-2 text-center">{document._count.lines}</td>
+                    <td className="px-3 py-2 text-center">{document.status === "POSTED" ? "معتمد" : document.status === "DRAFT" ? "مسودة" : "ملغي"}</td>
+                    <td className="px-3 py-2 text-left"><Link href={href} className="text-blue-700 underline">فتح</Link></td>
+                  </tr>
+                );
+              })}
+              {employee.primaryDocuments.length === 0 ? <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-500">لا توجد سندات للموظف بعد.</td></tr> : null}
             </tbody>
           </table>
         </div>
