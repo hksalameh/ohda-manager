@@ -1,4 +1,4 @@
-name: Database CI
+name: Application CI
 
 on:
   push:
@@ -6,21 +6,27 @@ on:
     paths:
       - "prisma/**"
       - "scripts/**"
-      - "src/lib/**"
+      - "src/**"
       - "package.json"
+      - "tsconfig.json"
+      - "next-env.d.ts"
+      - "postcss.config.mjs"
       - ".env.example"
       - ".github/workflows/database-ci.yml"
   pull_request:
     paths:
       - "prisma/**"
       - "scripts/**"
-      - "src/lib/**"
+      - "src/**"
       - "package.json"
+      - "tsconfig.json"
+      - "next-env.d.ts"
+      - "postcss.config.mjs"
       - ".env.example"
       - ".github/workflows/database-ci.yml"
 
 jobs:
-  validate-database:
+  validate-application:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: file:./ci.db
@@ -52,3 +58,6 @@ jobs:
 
       - name: Test inventory posting rules
         run: npm run test:posting
+
+      - name: Build Next.js application
+        run: npm run build
