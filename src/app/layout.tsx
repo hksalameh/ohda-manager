@@ -12,6 +12,8 @@ const links = [
   { href: "/items", label: "المواد" },
   { href: "/locations", label: "المواقع والغرف" },
   { href: "/employees", label: "الموظفون" },
+  { href: "/documents", label: "المستندات" },
+  { href: "/settings/templates", label: "نماذج الطباعة" },
 ];
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
