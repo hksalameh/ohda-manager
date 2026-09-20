@@ -173,7 +173,6 @@ async function main() {
     let totalRows = 0;
     let importedRows = 0;
     let warningRows = 0;
-    let failedRows = 0;
 
     for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber += 1) {
       const row = sheet.getRow(rowNumber);
@@ -297,27 +296,14 @@ async function main() {
         importedRows += 1;
         if (warnings.length) warningRows += 1;
       } catch (error) {
-        failedRows += 1;
         const message = error instanceof Error ? error.message : String(error);
-        await tx.importRow.create({
-          data: {
-            batchId: batch.id,
-            rowNumber,
-            itemCode,
-            itemName,
-            rawDataJsonText: JSON.stringify({ itemCode, itemName }),
-            status: ImportRowStatus.FAILED,
-            warningMessage: message,
-          },
-        });
+        throw new Error(`فشل استيراد الصف ${rowNumber}: ${message}`);
       }
     }
 
-    const finalStatus = failedRows
-      ? ImportStatus.FAILED
-      : warningRows
-        ? ImportStatus.COMPLETED_WITH_WARNINGS
-        : ImportStatus.COMPLETED;
+    const finalStatus = warningRows
+      ? ImportStatus.COMPLETED_WITH_WARNINGS
+      : ImportStatus.COMPLETED;
 
     await tx.importBatch.update({
       where: { id: batch.id },
@@ -326,15 +312,15 @@ async function main() {
         totalRows,
         importedRows,
         warningRows,
-        failedRows,
+        failedRows: 0,
       },
     });
 
     await tx.openingSnapshot.update({
       where: { id: snapshot.id },
       data: {
-        status: failedRows ? SnapshotStatus.DRAFT : SnapshotStatus.POSTED,
-        postedAt: failedRows ? null : new Date(),
+        status: SnapshotStatus.POSTED,
+        postedAt: new Date(),
       },
     });
 
@@ -345,7 +331,7 @@ async function main() {
       totalRows,
       importedRows,
       warningRows,
-      failedRows,
+      failedRows: 0,
       locationCount: locations.size,
     };
   });
