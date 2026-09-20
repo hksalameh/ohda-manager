@@ -31,7 +31,7 @@ function parseArgs(): Args {
     );
   }
 
-  const snapshotDate = new Date(`${dateArg}T00:00:00`);
+  const snapshotDate = new Date(`${dateArg}T00:00:00.000Z`);
   if (Number.isNaN(snapshotDate.getTime())) {
     throw new Error("تاريخ الجرد غير صالح. استخدم الصيغة YYYY-MM-DD");
   }
