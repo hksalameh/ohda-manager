@@ -13,6 +13,7 @@ const links = [
   { href: "/locations", label: "المواقع والغرف" },
   { href: "/employees", label: "الموظفون" },
   { href: "/documents", label: "المستندات" },
+  { href: "/stocktake", label: "الجرد والتسويات" },
   { href: "/settings/templates", label: "نماذج الطباعة" },
 ];
 
