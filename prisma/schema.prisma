@@ -1,0 +1,526 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum LocationType {
+  ROOM
+  OFFICE
+  DEPARTMENT
+  STORE
+  HALL
+  OTHER
+}
+
+enum CounterpartyType {
+  SUPPLIER
+  DONOR
+  CENTER
+  PERSON
+  OTHER
+}
+
+enum DocumentType {
+  OPENING_INVENTORY
+  RECEIPT
+  ISSUE
+  CUSTODY
+  RETURN
+  TRANSFER
+  ADJUSTMENT
+  HISTORICAL_RECEIPT
+  HISTORICAL_ISSUE
+}
+
+enum DocumentStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+enum PostingMode {
+  POST_TO_STOCK
+  REFERENCE_ONLY
+}
+
+enum MovementType {
+  OPENING
+  RECEIPT
+  ISSUE
+  CUSTODY_ASSIGN
+  CUSTODY_RETURN
+  TRANSFER
+  ADJUST_IN
+  ADJUST_OUT
+}
+
+enum SignatureType {
+  RECEIVER
+  ISSUER
+  STOREKEEPER
+  APPROVER
+  OTHER
+}
+
+enum SnapshotStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+enum ImportStatus {
+  PROCESSING
+  COMPLETED
+  COMPLETED_WITH_WARNINGS
+  FAILED
+}
+
+enum ImportRowStatus {
+  IMPORTED
+  WARNING
+  FAILED
+}
+
+enum TemplateVersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Center {
+  id               String            @id @default(cuid())
+  code             String?           @unique
+  name             String
+  active           Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  locations        Location[]
+  employees        Employee[]
+  documents        InventoryDocument[]
+  openingSnapshots OpeningSnapshot[]
+  importBatches    ImportBatch[]
+
+  @@index([name])
+}
+
+model Location {
+  id          String       @id @default(cuid())
+  centerId    String
+  parentId    String?
+  code        String?
+  name        String
+  type        LocationType @default(ROOM)
+  active      Boolean      @default(true)
+  notes       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  center      Center       @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  parent      Location?    @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Location[]   @relation("LocationHierarchy")
+
+  employeeAssignments EmployeeLocationAssignment[]
+  documentsFrom      InventoryDocument[] @relation("DocumentFromLocation")
+  documentsTo        InventoryDocument[] @relation("DocumentToLocation")
+  openingAllocations OpeningLocationAllocation[]
+  movementsFrom      InventoryMovement[] @relation("MovementFromLocation")
+  movementsTo        InventoryMovement[] @relation("MovementToLocation")
+
+  @@unique([centerId, name])
+  @@unique([centerId, code])
+  @@index([centerId, type])
+}
+
+model Employee {
+  id          String   @id @default(cuid())
+  centerId    String
+  employeeNo  String?
+  fullName    String
+  jobTitle    String?
+  active      Boolean  @default(true)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  center              Center                       @relation(fields: [centerId], references: [id], onDelete: Restrict)
+  locationAssignments EmployeeLocationAssignment[]
+  primaryDocuments    InventoryDocument[]          @relation("DocumentEmployee")
+  signatures          DocumentSignature[]
+  openingAllocations  OpeningLocationAllocation[]
+  movementsFrom       InventoryMovement[]          @relation("MovementFromEmployee")
+  movementsTo         InventoryMovement[]          @relation("MovementToEmployee")
+
+  @@unique([centerId, employeeNo])
+  @@index([centerId, fullName])
+}
+
+model EmployeeLocationAssignment {
+  id         String    @id @default(cuid())
+  employeeId String
+  locationId String
+  startsAt   DateTime
+  endsAt     DateTime?
+  isPrimary  Boolean   @default(true)
+  notes      String?
+  createdAt  DateTime  @default(now())
+
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  location   Location  @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@index([employeeId, startsAt])
+  @@index([locationId, startsAt])
+}
+
+model ItemCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items     Item[]
+}
+
+model Unit {
+  id        String   @id @default(cuid())
+  code      String?  @unique
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items     Item[]
+}
+
+model Item {
+  id                     String   @id @default(cuid())
+  itemCode               String?  @unique
+  name                   String
+  categoryId             String?
+  unitId                 String?
+  legacyLedgerPageNo     String?
+  active                 Boolean  @default(true)
+  notes                  String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  category               ItemCategory?                @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  unit                   Unit?                        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  documentLines          InventoryDocumentLine[]
+  openingLines           OpeningSnapshotLine[]
+  movements              InventoryMovement[]
+  importRows             ImportRow[]
+
+  @@index([name])
+  @@index([legacyLedgerPageNo])
+}
+
+model Counterparty {
+  id        String           @id @default(cuid())
+  name      String
+  type      CounterpartyType @default(OTHER)
+  phone     String?
+  address   String?
+  notes     String?
+  active    Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  documents InventoryDocument[]
+
+  @@unique([name, type])
+}
+
+model InventoryDocument {
+  id                       String         @id @default(cuid())
+  documentNo               String?
+  documentType             DocumentType
+  status                   DocumentStatus @default(DRAFT)
+  postingMode              PostingMode    @default(POST_TO_STOCK)
+  centerId                 String
+  documentDate             DateTime
+  fromLocationId           String?
+  toLocationId             String?
+  employeeId               String?
+  counterpartyId           String?
+  templateVersionId        String?
+  statement                String?
+  notes                    String?
+
+  centerNameSnapshot       String?
+  employeeNameSnapshot     String?
+  employeeNoSnapshot       String?
+  fromLocationNameSnapshot String?
+  toLocationNameSnapshot   String?
+  counterpartyNameSnapshot String?
+
+  postedAt                 DateTime?
+  lockedAt                 DateTime?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+
+  center                   Center               @relation(fields: [centerId], references: [id], onDelete: Restrict)
+  fromLocation             Location?            @relation("DocumentFromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  toLocation               Location?            @relation("DocumentToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
+  employee                 Employee?            @relation("DocumentEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  counterparty             Counterparty?        @relation(fields: [counterpartyId], references: [id], onDelete: Restrict)
+  templateVersion          PrintTemplateVersion? @relation(fields: [templateVersionId], references: [id], onDelete: SetNull)
+
+  lines                    InventoryDocumentLine[]
+  receiptDetail            ReceiptDetail?
+  signatures               DocumentSignature[]
+  movements                InventoryMovement[]
+
+  @@index([centerId, documentType, documentDate])
+  @@index([documentNo])
+  @@index([employeeId, documentDate])
+}
+
+model InventoryDocumentLine {
+  id                   String   @id @default(cuid())
+  documentId           String
+  lineNo               Int
+  itemId               String
+  quantity             Int
+  unitPriceFils        Int?
+  totalValueFils       Int?
+  ledgerPageNo         String?
+  itemCodeSnapshot     String?
+  itemNameSnapshot     String
+  unitNameSnapshot     String?
+  notes                String?
+  createdAt            DateTime @default(now())
+
+  document             InventoryDocument       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  item                 Item                    @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  movements            InventoryMovement[]
+  openingSourceLinks   OpeningSourceAllocation[]
+
+  @@unique([documentId, lineNo])
+  @@index([itemId])
+}
+
+model ReceiptDetail {
+  documentId            String   @id
+  invoiceNo             String?
+  invoiceDate           DateTime?
+  receivingCommitteeDate DateTime?
+  reportReference       String?
+  purchaseOrderNo       String?
+  notes                 String?
+
+  document              InventoryDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+model DocumentSignature {
+  id                String        @id @default(cuid())
+  documentId        String
+  signatureType     SignatureType
+  employeeId        String?
+  signerName        String
+  signatureFilePath String?
+  signedAt          DateTime?
+  createdAt         DateTime      @default(now())
+
+  document          InventoryDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  employee          Employee?         @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@index([documentId, signatureType])
+}
+
+model OpeningSnapshot {
+  id             String         @id @default(cuid())
+  centerId       String
+  snapshotDate   DateTime
+  status         SnapshotStatus @default(DRAFT)
+  name           String
+  sourceFileName String?
+  notes          String?
+  postedAt       DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  center         Center                @relation(fields: [centerId], references: [id], onDelete: Restrict)
+  lines          OpeningSnapshotLine[]
+  importBatch    ImportBatch?
+
+  @@index([centerId, snapshotDate])
+}
+
+model OpeningSnapshotLine {
+  id               String   @id @default(cuid())
+  snapshotId       String
+  itemId           String
+  bookBalance      Int
+  physicalQuantity Int
+  ledgerPageNo     String?
+  notes            String?
+  createdAt        DateTime @default(now())
+
+  snapshot         OpeningSnapshot          @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  item             Item                     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  allocations      OpeningLocationAllocation[]
+  sourceLinks      OpeningSourceAllocation[]
+
+  @@unique([snapshotId, itemId])
+  @@index([itemId])
+}
+
+model OpeningLocationAllocation {
+  id            String   @id @default(cuid())
+  openingLineId String
+  locationId    String
+  employeeId    String?
+  quantity      Int
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  openingLine   OpeningSnapshotLine @relation(fields: [openingLineId], references: [id], onDelete: Cascade)
+  location      Location            @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  employee      Employee?           @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  movement      InventoryMovement?
+
+  @@unique([openingLineId, locationId, employeeId])
+  @@index([locationId])
+}
+
+model OpeningSourceAllocation {
+  id                       String   @id @default(cuid())
+  openingLineId            String
+  historicalDocumentLineId String
+  quantity                 Int
+  notes                    String?
+  createdAt                DateTime @default(now())
+
+  openingLine              OpeningSnapshotLine   @relation(fields: [openingLineId], references: [id], onDelete: Cascade)
+  historicalDocumentLine   InventoryDocumentLine @relation(fields: [historicalDocumentLineId], references: [id], onDelete: Restrict)
+
+  @@unique([openingLineId, historicalDocumentLineId])
+  @@index([historicalDocumentLineId])
+}
+
+model InventoryMovement {
+  id                  String       @id @default(cuid())
+  itemId              String
+  movementType        MovementType
+  quantity            Int
+  movementDate        DateTime
+  documentId          String?
+  documentLineId      String?
+  openingAllocationId String?      @unique
+  fromLocationId      String?
+  toLocationId        String?
+  fromEmployeeId      String?
+  toEmployeeId        String?
+  notes               String?
+  createdAt           DateTime     @default(now())
+
+  item                Item                       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  document            InventoryDocument?         @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  documentLine        InventoryDocumentLine?     @relation(fields: [documentLineId], references: [id], onDelete: SetNull)
+  openingAllocation   OpeningLocationAllocation? @relation(fields: [openingAllocationId], references: [id], onDelete: SetNull)
+  fromLocation        Location?                  @relation("MovementFromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  toLocation          Location?                  @relation("MovementToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
+  fromEmployee        Employee?                  @relation("MovementFromEmployee", fields: [fromEmployeeId], references: [id], onDelete: Restrict)
+  toEmployee          Employee?                  @relation("MovementToEmployee", fields: [toEmployeeId], references: [id], onDelete: Restrict)
+
+  @@index([itemId, movementDate])
+  @@index([documentId])
+  @@index([fromLocationId, movementDate])
+  @@index([toLocationId, movementDate])
+  @@index([fromEmployeeId, movementDate])
+  @@index([toEmployeeId, movementDate])
+}
+
+model ImportBatch {
+  id             String       @id @default(cuid())
+  centerId       String
+  snapshotId     String?      @unique
+  fileName       String
+  sourceHash     String       @unique
+  status         ImportStatus @default(PROCESSING)
+  totalRows      Int          @default(0)
+  importedRows   Int          @default(0)
+  warningRows    Int          @default(0)
+  failedRows     Int          @default(0)
+  notes          String?
+  importedAt     DateTime     @default(now())
+
+  center         Center           @relation(fields: [centerId], references: [id], onDelete: Restrict)
+  snapshot       OpeningSnapshot? @relation(fields: [snapshotId], references: [id], onDelete: SetNull)
+  rows           ImportRow[]
+
+  @@index([centerId, importedAt])
+}
+
+model ImportRow {
+  id                   String          @id @default(cuid())
+  batchId              String
+  rowNumber            Int
+  itemId               String?
+  itemCode             String?
+  itemName             String?
+  bookBalance          Int?
+  physicalQuantity     Int?
+  ledgerPageNo         String?
+  locationDataJsonText String?
+  rawDataJsonText      String
+  status               ImportRowStatus
+  warningMessage       String?
+  createdAt            DateTime        @default(now())
+
+  batch                 ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  item                  Item?       @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@unique([batchId, rowNumber])
+  @@index([itemId])
+}
+
+model PrintTemplate {
+  id           String        @id @default(cuid())
+  code         String        @unique
+  name         String
+  documentType DocumentType?
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  versions     PrintTemplateVersion[]
+}
+
+model PrintTemplateVersion {
+  id               String                @id @default(cuid())
+  templateId       String
+  version          Int
+  status           TemplateVersionStatus @default(DRAFT)
+  name             String
+  paperSize        String                @default("A4")
+  orientation      String                @default("portrait")
+  rowsPerPage      Int                   @default(20)
+  layoutJsonText   String                @default("{}")
+  htmlTemplateText String?
+  cssText          String?
+  publishedAt      DateTime?
+  createdAt        DateTime              @default(now())
+
+  template         PrintTemplate      @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  documents        InventoryDocument[]
+
+  @@unique([templateId, version])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  entityType  String
+  entityId    String?
+  action      String
+  detailsText String?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+}
