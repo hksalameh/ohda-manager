@@ -44,6 +44,7 @@ export default async function DocumentsPage() {
         <div className="flex flex-wrap gap-2">
           <Link href="/documents/new?type=receipt" className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-800">+ سند إدخال</Link>
           <Link href="/documents/new?type=issue" className="rounded-lg bg-amber-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-800">+ سند إخراج</Link>
+          <Link href="/documents/historical" className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100">+ مستند قديم من الدفتر</Link>
         </div>
       </div>
 
