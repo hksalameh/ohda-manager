@@ -59,5 +59,12 @@ jobs:
       - name: Test inventory posting rules
         run: npm run test:posting
 
+      - name: Test consistent SQLite backup
+        run: |
+          rm -rf .tmp/backups
+          npm run backup:db -- .tmp/backups
+          test "$(find .tmp/backups -maxdepth 1 -name 'ohda-*.db' -type f | wc -l)" -eq 1
+          test -s "$(find .tmp/backups -maxdepth 1 -name 'ohda-*.db' -type f | head -n 1)"
+
       - name: Build Next.js application
         run: npm run build
