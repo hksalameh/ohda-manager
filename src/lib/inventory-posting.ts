@@ -22,15 +22,8 @@ type PlannedMovement = {
 
 async function locationBalance(tx: Tx, itemId: string, locationId: string) {
   const movements = await tx.inventoryMovement.findMany({
-    where: {
-      itemId,
-      OR: [{ fromLocationId: locationId }, { toLocationId: locationId }],
-    },
-    select: {
-      quantity: true,
-      fromLocationId: true,
-      toLocationId: true,
-    },
+    where: { itemId, OR: [{ fromLocationId: locationId }, { toLocationId: locationId }] },
+    select: { quantity: true, fromLocationId: true, toLocationId: true },
   });
 
   return movements.reduce((balance, movement) => {
@@ -115,67 +108,46 @@ function planLine(
   if (!Number.isInteger(line.quantity) || line.quantity <= 0) {
     throw new Error("كل كمية في المستند يجب أن تكون عدداً صحيحاً أكبر من صفر");
   }
-
   if (document.postingMode === PostingMode.REFERENCE_ONLY) return null;
+
+  const base = {
+    lineId: line.id,
+    itemId: line.itemId,
+    quantity: line.quantity,
+    fromEmployeeId: null,
+    toEmployeeId: null,
+  };
 
   switch (document.documentType) {
     case DocumentType.RECEIPT:
       if (!document.toLocationId) throw new Error("سند الإدخال يحتاج موقع استلام");
-      return {
-        lineId: line.id,
-        itemId: line.itemId,
-        quantity: line.quantity,
-        movementType: MovementType.RECEIPT,
-        fromLocationId: null,
-        toLocationId: document.toLocationId,
-        fromEmployeeId: null,
-        toEmployeeId: null,
-      };
+      return { ...base, movementType: MovementType.RECEIPT, fromLocationId: null, toLocationId: document.toLocationId };
 
     case DocumentType.ISSUE:
       if (!document.fromLocationId) throw new Error("سند الإخراج يحتاج موقع إخراج");
-      return {
-        lineId: line.id,
-        itemId: line.itemId,
-        quantity: line.quantity,
-        movementType: MovementType.ISSUE,
-        fromLocationId: document.fromLocationId,
-        toLocationId: null,
-        fromEmployeeId: null,
-        toEmployeeId: null,
-      };
+      return { ...base, movementType: MovementType.ISSUE, fromLocationId: document.fromLocationId, toLocationId: null };
 
     case DocumentType.TRANSFER:
       if (!document.fromLocationId || !document.toLocationId) {
         throw new Error("سند النقل يحتاج موقعاً مصدراً وموقعاً مستقبلاً");
       }
-      if (document.fromLocationId === document.toLocationId) {
-        throw new Error("لا يمكن نقل المادة إلى نفس الموقع");
-      }
+      if (document.fromLocationId === document.toLocationId) throw new Error("لا يمكن نقل المادة إلى نفس الموقع");
       return {
-        lineId: line.id,
-        itemId: line.itemId,
-        quantity: line.quantity,
+        ...base,
         movementType: MovementType.TRANSFER,
         fromLocationId: document.fromLocationId,
         toLocationId: document.toLocationId,
-        fromEmployeeId: null,
-        toEmployeeId: null,
       };
 
     case DocumentType.CUSTODY: {
       if (!document.employeeId) throw new Error("سند العهدة يحتاج موظفاً مستلماً");
-      const toLocationId = document.toLocationId ?? document.fromLocationId;
-      if (!toLocationId) throw new Error("سند العهدة يحتاج موقع المادة/غرفة الموظف");
-      const fromLocationId = document.fromLocationId ?? toLocationId;
+      const locationId = document.toLocationId ?? document.fromLocationId;
+      if (!locationId) throw new Error("سند العهدة يحتاج موقع المادة/غرفة الموظف");
       return {
-        lineId: line.id,
-        itemId: line.itemId,
-        quantity: line.quantity,
+        ...base,
         movementType: MovementType.CUSTODY_ASSIGN,
-        fromLocationId,
-        toLocationId,
-        fromEmployeeId: null,
+        fromLocationId: document.fromLocationId ?? locationId,
+        toLocationId: locationId,
         toEmployeeId: document.employeeId,
       };
     }
@@ -184,43 +156,21 @@ function planLine(
       if (!document.employeeId) throw new Error("سند الإرجاع يحتاج الموظف الذي يعيد العهدة");
       const fromLocationId = document.fromLocationId ?? document.toLocationId;
       if (!fromLocationId) throw new Error("سند الإرجاع يحتاج موقع العهدة الحالي");
-      const toLocationId = document.toLocationId ?? fromLocationId;
       return {
-        lineId: line.id,
-        itemId: line.itemId,
-        quantity: line.quantity,
+        ...base,
         movementType: MovementType.CUSTODY_RETURN,
         fromLocationId,
-        toLocationId,
+        toLocationId: document.toLocationId ?? fromLocationId,
         fromEmployeeId: document.employeeId,
-        toEmployeeId: null,
       };
     }
 
     case DocumentType.ADJUSTMENT:
       if (document.fromLocationId && !document.toLocationId) {
-        return {
-          lineId: line.id,
-          itemId: line.itemId,
-          quantity: line.quantity,
-          movementType: MovementType.ADJUST_OUT,
-          fromLocationId: document.fromLocationId,
-          toLocationId: null,
-          fromEmployeeId: null,
-          toEmployeeId: null,
-        };
+        return { ...base, movementType: MovementType.ADJUST_OUT, fromLocationId: document.fromLocationId, toLocationId: null };
       }
       if (document.toLocationId && !document.fromLocationId) {
-        return {
-          lineId: line.id,
-          itemId: line.itemId,
-          quantity: line.quantity,
-          movementType: MovementType.ADJUST_IN,
-          fromLocationId: null,
-          toLocationId: document.toLocationId,
-          fromEmployeeId: null,
-          toEmployeeId: null,
-        };
+        return { ...base, movementType: MovementType.ADJUST_IN, fromLocationId: null, toLocationId: document.toLocationId };
       }
       throw new Error("التسوية تحتاج موقع إدخال فقط أو موقع إخراج فقط");
 
@@ -248,15 +198,13 @@ export async function postInventoryDocument(documentId: string) {
     });
 
     if (!document) throw new Error("المستند غير موجود");
-    if (document.status !== DocumentStatus.DRAFT) {
-      throw new Error("لا يمكن ترحيل مستند غير موجود في حالة مسودة");
-    }
+    if (document.status !== DocumentStatus.DRAFT) throw new Error("لا يمكن ترحيل مستند غير موجود في حالة مسودة");
     if (document.lines.length === 0) throw new Error("لا يمكن ترحيل مستند بلا مواد");
 
-    if (
-      [DocumentType.HISTORICAL_RECEIPT, DocumentType.HISTORICAL_ISSUE].includes(document.documentType) &&
-      document.postingMode !== PostingMode.REFERENCE_ONLY
-    ) {
+    const isHistorical =
+      document.documentType === DocumentType.HISTORICAL_RECEIPT ||
+      document.documentType === DocumentType.HISTORICAL_ISSUE;
+    if (isHistorical && document.postingMode !== PostingMode.REFERENCE_ONLY) {
       throw new Error("المستند التاريخي يجب أن يكون مرجعياً ولا يؤثر في الرصيد الحالي");
     }
 
@@ -297,11 +245,7 @@ export async function postInventoryDocument(documentId: string) {
         }
       }
 
-      if (
-        movement.movementType === MovementType.CUSTODY_RETURN &&
-        movement.fromEmployeeId &&
-        movement.fromLocationId
-      ) {
+      if (movement.movementType === MovementType.CUSTODY_RETURN && movement.fromEmployeeId && movement.fromLocationId) {
         const employeeBalance = await employeeBalanceAtLocation(
           tx,
           movement.fromEmployeeId,
@@ -355,10 +299,6 @@ export async function getLocationItemBalance(itemId: string, locationId: string)
   return prisma.$transaction((tx) => locationBalance(tx, itemId, locationId));
 }
 
-export async function getEmployeeItemBalanceAtLocation(
-  employeeId: string,
-  itemId: string,
-  locationId: string,
-) {
+export async function getEmployeeItemBalanceAtLocation(employeeId: string, itemId: string, locationId: string) {
   return prisma.$transaction((tx) => employeeBalanceAtLocation(tx, employeeId, itemId, locationId));
 }
