@@ -45,6 +45,7 @@ export default async function DocumentsPage() {
           <Link href="/documents/new?type=receipt" className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-800">+ سند إدخال</Link>
           <Link href="/documents/new?type=issue" className="rounded-lg bg-amber-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-800">+ سند إخراج</Link>
           <Link href="/documents/transfer" className="rounded-lg bg-sky-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-sky-800">+ نقل بين المواقع</Link>
+          <Link href="/stocktake" className="rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-violet-800">+ جرد وتسوية</Link>
           <Link href="/documents/historical" className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100">+ مستند قديم من الدفتر</Link>
         </div>
       </div>
@@ -81,7 +82,9 @@ export default async function DocumentsPage() {
                     ? `/documents/transfer/${document.id}`
                     : document.documentType === "RETURN"
                       ? `/documents/return/${document.id}`
-                      : `/documents/${document.id}`;
+                      : document.documentType === "ADJUSTMENT"
+                        ? `/documents/adjustment/${document.id}`
+                        : `/documents/${document.id}`;
                   return (
                     <tr key={document.id} className="hover:bg-slate-50/70">
                       <td className="px-4 py-3 font-medium text-slate-900">{typeLabels[document.documentType] ?? document.documentType}</td>
