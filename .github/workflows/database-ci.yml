@@ -6,6 +6,7 @@ on:
     paths:
       - "prisma/**"
       - "scripts/**"
+      - "src/lib/**"
       - "package.json"
       - ".env.example"
       - ".github/workflows/database-ci.yml"
@@ -13,6 +14,7 @@ on:
     paths:
       - "prisma/**"
       - "scripts/**"
+      - "src/lib/**"
       - "package.json"
       - ".env.example"
       - ".github/workflows/database-ci.yml"
@@ -47,3 +49,6 @@ jobs:
 
       - name: Test Excel opening import
         run: npm run test:db
+
+      - name: Test inventory posting rules
+        run: npm run test:posting
