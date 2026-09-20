@@ -14,7 +14,8 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "import:ramtha": "tsx scripts/import-ramtha-xlsx.ts",
-    "test:db": "tsx scripts/create-test-xlsx.ts .tmp/ramtha-test.xlsx && tsx scripts/import-ramtha-xlsx.ts .tmp/ramtha-test.xlsx --date=2025-12-31 && tsx scripts/verify-test-import.ts"
+    "test:db": "tsx scripts/create-test-xlsx.ts .tmp/ramtha-test.xlsx && tsx scripts/import-ramtha-xlsx.ts .tmp/ramtha-test.xlsx --date=2025-12-31 && tsx scripts/verify-test-import.ts",
+    "test:posting": "tsx scripts/test-posting.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",
