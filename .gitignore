@@ -25,6 +25,9 @@ imports/private/
 *.xls
 *.csv
 
+# Local test output
+.tmp/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
