@@ -102,7 +102,15 @@ export async function postStockDocument(formData: FormData) {
 
   const document = await prisma.inventoryDocument.findUnique({ where: { id: documentId } });
   if (!document) throw new Error("المستند غير موجود");
-  if (![DocumentType.RECEIPT, DocumentType.ISSUE, DocumentType.TRANSFER, DocumentType.RETURN, DocumentType.ADJUSTMENT].includes(document.documentType)) {
+
+  const isPostableStockDocument =
+    document.documentType === DocumentType.RECEIPT ||
+    document.documentType === DocumentType.ISSUE ||
+    document.documentType === DocumentType.TRANSFER ||
+    document.documentType === DocumentType.RETURN ||
+    document.documentType === DocumentType.ADJUSTMENT;
+
+  if (!isPostableStockDocument) {
     throw new Error("هذا النوع من المستندات لا يعتمد بهذه العملية");
   }
 
