@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { ensureCustodyTemplate } from "@/lib/print-templates";
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -157,6 +158,7 @@ export async function createCustodyDraftFromRoom(formData: FormData) {
     include: { unit: true },
   });
   const itemMap = new Map(items.map((item) => [item.id, item]));
+  const templateVersion = await ensureCustodyTemplate();
 
   const document = await prisma.inventoryDocument.create({
     data: {
@@ -166,6 +168,7 @@ export async function createCustodyDraftFromRoom(formData: FormData) {
       employeeId: employee.id,
       fromLocationId: locationId,
       toLocationId: locationId,
+      templateVersionId: templateVersion.id,
       statement: `عهدة شخصية من محتويات ${assignment.location.name}`,
       lines: {
         create: available.map((entry, index) => {
