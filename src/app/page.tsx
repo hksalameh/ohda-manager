@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getCurrentCenter } from "@/lib/current-center";
 import { getCenterInventoryBalances } from "@/lib/inventory-query";
 
 export const dynamic = "force-dynamic";
@@ -15,14 +16,14 @@ function StatCard({ title, value, note }: { title: string; value: string | numbe
 }
 
 export default async function HomePage() {
-  const center = await prisma.center.findUnique({ where: { code: "RAMTHA" } });
+  const center = await getCurrentCenter();
 
   if (!center) {
     return (
       <section className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-        <h2 className="text-lg font-bold text-amber-950">قاعدة البيانات جاهزة، لكن بيانات الرمثا لم تُستورد بعد</h2>
+        <h2 className="text-lg font-bold text-amber-950">قاعدة البيانات جاهزة، لكن لا يوجد مركز مفعّل بعد</h2>
         <p className="mt-2 text-sm leading-7 text-amber-900">
-          بعد استيراد ملف عهدة الرمثا سيظهر هنا ملخص المواد والمواقع والجرد الافتتاحي بتاريخ 31/12/2025.
+          بعد إضافة مركز أو استيراد بياناته سيظهر هنا ملخص المواد والمواقع والجرد الخاص به.
         </p>
       </section>
     );
