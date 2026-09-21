@@ -41,14 +41,32 @@ export default async function StocktakePage({
     systemQuantity: number;
   }> = [];
   let allItems: Array<{ id: string; itemCode: string | null; name: string; unitName: string | null }> = [];
+  let employees: Array<{
+    id: string;
+    fullName: string;
+    employeeNo: string | null;
+    locationName: string | null;
+  }> = [];
 
   if (selectedLocation) {
-    const [balances, items] = await Promise.all([
+    const [balances, items, centerEmployees] = await Promise.all([
       getCenterInventoryBalances(center.id),
       prisma.item.findMany({
         where: { active: true },
         include: { unit: true },
         orderBy: [{ name: "asc" }],
+      }),
+      prisma.employee.findMany({
+        where: { centerId: center.id, active: true },
+        orderBy: { fullName: "asc" },
+        include: {
+          locationAssignments: {
+            where: { isPrimary: true, endsAt: null },
+            orderBy: { startsAt: "desc" },
+            take: 1,
+            include: { location: true },
+          },
+        },
       }),
     ]);
 
@@ -68,6 +86,13 @@ export default async function StocktakePage({
         systemQuantity: balances.itemLocationTotals.get(item.id)?.get(selectedLocation.id) ?? 0,
       }))
       .filter((item) => item.systemQuantity > 0);
+
+    employees = centerEmployees.map((employee) => ({
+      id: employee.id,
+      fullName: employee.fullName,
+      employeeNo: employee.employeeNo,
+      locationName: employee.locationAssignments[0]?.location.name ?? null,
+    }));
   }
 
   return (
@@ -75,9 +100,9 @@ export default async function StocktakePage({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm text-slate-500">المخزون / الجرد</p>
-          <h2 className="mt-1 text-2xl font-bold text-slate-900">جرد فعلي وتسوية الرصيد</h2>
+          <h2 className="mt-1 text-2xl font-bold text-slate-900">جرد الغرفة وتجهيز العهدة</h2>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
-            اختر الغرفة أو الموقع، ثم أدخل الكميات التي وجدتها فعلياً. النظام لا يغيّر السجل السابق؛ بل ينشئ تسوية جديدة فقط للفرق بين الرصيد المسجل والكمية الفعلية.
+            اختر الغرفة، ابحث عن المواد الموجودة فيها وأدخل الكميات الفعلية. ويمكنك في نفس العملية تحديد الشخص المستلم لتجهيز مسودة سند عهدة قابلة للمراجعة ثم الطباعة.
           </p>
         </div>
         <Link href="/documents" className="rounded-lg border border-slate-300 px-4 py-2 text-center text-sm font-medium hover:bg-slate-50">المستندات</Link>
@@ -86,37 +111,39 @@ export default async function StocktakePage({
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <form method="get" className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
           <label className="text-sm font-medium text-slate-700">
-            الموقع المراد جرده
-            <select name="locationId" required defaultValue={selectedLocation?.id ?? ""} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+            الغرفة / الموقع المراد جرده
+            <select name="locationId" required defaultValue={selectedLocation?.id ?? ""} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base">
               <option value="" disabled>اختر الغرفة / الموقع</option>
               {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
             </select>
           </label>
-          <button className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-800">بدء الجرد</button>
+          <button className="rounded-lg bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800">فتح الغرفة وبدء الجرد</button>
         </form>
       </section>
 
       {params.matched === "1" && selectedLocation ? (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-7 text-emerald-950">
-          الكميات التي أدخلتها مطابقة لرصيد النظام في {selectedLocation.name}، لذلك لم يتم إنشاء أي حركة تسوية.
+          الكميات التي أدخلتها مطابقة لرصيد النظام في {selectedLocation.name}، لذلك لم يلزم إنشاء تسوية مخزون.
         </section>
       ) : null}
 
       {selectedLocation ? (
         <>
           <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-            المركز: <strong>{center.name}</strong> • الموقع الحالي: <strong>{selectedLocation.name}</strong> • عدد الأصناف التي لها رصيد مسجل: <strong>{expectedItems.length}</strong>
+            المركز: <strong>{center.name}</strong> • الغرفة الحالية: <strong>{selectedLocation.name}</strong> • الأصناف المسجلة فيها: <strong>{expectedItems.length}</strong>
           </section>
           <StocktakeForm
             locationId={selectedLocation.id}
+            locationName={selectedLocation.name}
             expectedItems={expectedItems}
             allItems={allItems}
+            employees={employees}
             today={isoDate()}
           />
         </>
       ) : (
         <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-          اختر موقعاً لعرض الرصيد المسجل وبدء الجرد الفعلي.
+          اختر غرفة أو موقعاً أولاً لعرض المواد وبدء الجرد.
         </section>
       )}
     </div>
