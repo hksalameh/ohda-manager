@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import CenterSwitcher from "@/components/center-switcher";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "نظام إدارة العُهَد",
-  description: "نظام إدارة العهد واللوازم - مركز الرمثا",
+  description: "نظام مركزي لإدارة العهد واللوازم لعدة مراكز",
+  applicationName: "إدارة العهد",
+  manifest: "/manifest.webmanifest",
 };
 
 const links = [
@@ -24,25 +27,27 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <div className="min-h-screen">
           <header className="no-print border-b border-slate-200 bg-white shadow-sm">
-            <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">نظام إدارة العُهَد</h1>
-                <p className="mt-1 text-sm text-slate-500">مركز الرمثا</p>
+            <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 md:px-6">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h1 className="text-xl font-bold text-slate-900">نظام إدارة العُهَد</h1>
+                  <CenterSwitcher />
+                </div>
+                <nav className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
+                  {links.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="whitespace-nowrap rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </nav>
               </div>
-              <nav className="flex gap-2 overflow-x-auto pb-1 md:pb-0">
-                {links.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="whitespace-nowrap rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </nav>
             </div>
           </header>
-          <main className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">{children}</main>
+          <main className="mx-auto max-w-7xl px-4 py-5 sm:py-6 md:px-6 md:py-8">{children}</main>
         </div>
       </body>
     </html>
