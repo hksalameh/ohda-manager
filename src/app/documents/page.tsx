@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DocumentStatus, DocumentType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getCurrentCenter } from "@/lib/current-center";
 
 export const dynamic = "force-dynamic";
 
@@ -38,9 +39,9 @@ export default async function DocumentsPage({
   const type = (Object.values(DocumentType) as string[]).includes(typeText) ? typeText as DocumentType : null;
   const status = (Object.values(DocumentStatus) as string[]).includes(statusText) ? statusText as DocumentStatus : null;
 
-  const center = await prisma.center.findUnique({ where: { code: "RAMTHA" } });
+  const center = await getCurrentCenter();
   if (!center) {
-    return <p className="rounded-xl border border-amber-200 bg-amber-50 p-4">يجب استيراد بيانات مركز الرمثا أولاً.</p>;
+    return <p className="rounded-xl border border-amber-200 bg-amber-50 p-4">لا يوجد مركز مفعّل بعد.</p>;
   }
 
   const where: Prisma.InventoryDocumentWhereInput = {
@@ -81,7 +82,7 @@ export default async function DocumentsPage({
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">المستندات</h2>
-          <p className="mt-2 text-sm text-slate-500">سندات الإدخال والإخراج والعهدة وباقي حركات اللوازم.</p>
+          <p className="mt-2 text-sm text-slate-500">سندات الإدخال والإخراج والعهدة وباقي حركات اللوازم للمركز الحالي.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/documents/new?type=receipt" className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-800">+ سند إدخال</Link>
