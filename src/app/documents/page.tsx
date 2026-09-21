@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { DocumentStatus, DocumentType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-const typeLabels: Record<string, string> = {
+const typeLabels: Record<DocumentType, string> = {
   RECEIPT: "إدخال لوازم",
   ISSUE: "إخراج لوازم",
   CUSTODY: "عهدة شخصية",
@@ -15,16 +16,43 @@ const typeLabels: Record<string, string> = {
   OPENING_INVENTORY: "جرد افتتاحي",
 };
 
-export default async function DocumentsPage() {
+const statusLabels: Record<DocumentStatus, string> = {
+  DRAFT: "مسودة",
+  POSTED: "معتمد",
+  CANCELLED: "ملغي",
+};
+
+function value(input: string | string[] | undefined) {
+  return typeof input === "string" ? input.trim() : "";
+}
+
+export default async function DocumentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const q = value(params.q).toLowerCase();
+  const typeText = value(params.type);
+  const statusText = value(params.status);
+  const type = (Object.values(DocumentType) as string[]).includes(typeText) ? typeText as DocumentType : null;
+  const status = (Object.values(DocumentStatus) as string[]).includes(statusText) ? statusText as DocumentStatus : null;
+
   const center = await prisma.center.findUnique({ where: { code: "RAMTHA" } });
   if (!center) {
     return <p className="rounded-xl border border-amber-200 bg-amber-50 p-4">يجب استيراد بيانات مركز الرمثا أولاً.</p>;
   }
 
+  const where: Prisma.InventoryDocumentWhereInput = {
+    centerId: center.id,
+    ...(type ? { documentType: type } : {}),
+    ...(status ? { status } : {}),
+  };
+
   const documents = await prisma.inventoryDocument.findMany({
-    where: { centerId: center.id },
+    where,
     orderBy: [{ documentDate: "desc" }, { createdAt: "desc" }],
-    take: 200,
+    take: 500,
     include: {
       employee: true,
       fromLocation: true,
@@ -32,6 +60,20 @@ export default async function DocumentsPage() {
       counterparty: true,
       _count: { select: { lines: true } },
     },
+  });
+
+  const filtered = documents.filter((document) => {
+    if (!q) return true;
+    const haystack = [
+      document.documentNo,
+      document.statement,
+      document.employee?.fullName,
+      document.employee?.employeeNo,
+      document.counterparty?.name,
+      document.fromLocation?.name,
+      document.toLocation?.name,
+    ].filter(Boolean).join(" ").toLowerCase();
+    return haystack.includes(q);
   });
 
   return (
@@ -50,13 +92,21 @@ export default async function DocumentsPage() {
         </div>
       </div>
 
-      {documents.length === 0 ? (
+      <form className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[1fr_220px_180px_auto]">
+        <input name="q" defaultValue={value(params.q)} placeholder="ابحث برقم السند، البيان، الموظف، الجهة أو الموقع" className="rounded-lg border border-slate-300 px-3 py-2.5" />
+        <select name="type" defaultValue={type ?? ""} className="rounded-lg border border-slate-300 bg-white px-3 py-2.5"><option value="">كل الأنواع</option>{Object.values(DocumentType).map((candidate) => <option key={candidate} value={candidate}>{typeLabels[candidate]}</option>)}</select>
+        <select name="status" defaultValue={status ?? ""} className="rounded-lg border border-slate-300 bg-white px-3 py-2.5"><option value="">كل الحالات</option>{Object.values(DocumentStatus).map((candidate) => <option key={candidate} value={candidate}>{statusLabels[candidate]}</option>)}</select>
+        <button className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-bold text-white">بحث</button>
+      </form>
+
+      {filtered.length === 0 ? (
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="font-bold text-slate-900">لا توجد مستندات بعد</h3>
-          <p className="mt-2 text-sm text-slate-600">ابدأ بسند إدخال أو إخراج، أو أنشئ سند عهدة من شاشة الموظفين.</p>
+          <h3 className="font-bold text-slate-900">لا توجد مستندات مطابقة</h3>
+          <p className="mt-2 text-sm text-slate-600">غيّر البحث أو أنشئ مستنداً جديداً.</p>
         </section>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-4 py-3 text-sm text-slate-500">عدد النتائج: <strong className="text-slate-900">{filtered.length}</strong></div>
           <div className="overflow-x-auto">
             <table className="min-w-[1000px] w-full text-sm">
               <thead className="bg-slate-50 text-slate-600">
@@ -71,30 +121,30 @@ export default async function DocumentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {documents.map((document) => {
+                {filtered.map((document) => {
                   const related = document.employee?.fullName
                     ?? document.counterparty?.name
                     ?? document.toLocation?.name
                     ?? document.fromLocation?.name
                     ?? "—";
-                  const isDraft = document.status === "DRAFT";
-                  const detailHref = document.documentType === "TRANSFER"
+                  const isDraft = document.status === DocumentStatus.DRAFT;
+                  const detailHref = document.documentType === DocumentType.TRANSFER
                     ? `/documents/transfer/${document.id}`
-                    : document.documentType === "RETURN"
+                    : document.documentType === DocumentType.RETURN
                       ? `/documents/return/${document.id}`
-                      : document.documentType === "ADJUSTMENT"
+                      : document.documentType === DocumentType.ADJUSTMENT
                         ? `/documents/adjustment/${document.id}`
                         : `/documents/${document.id}`;
                   return (
                     <tr key={document.id} className="hover:bg-slate-50/70">
-                      <td className="px-4 py-3 font-medium text-slate-900">{typeLabels[document.documentType] ?? document.documentType}</td>
+                      <td className="px-4 py-3 font-medium text-slate-900">{typeLabels[document.documentType]}</td>
                       <td className="px-4 py-3">{document.documentNo ?? "—"}</td>
                       <td className="px-4 py-3 whitespace-nowrap">{document.documentDate.toLocaleDateString("ar-JO")}</td>
                       <td className="px-4 py-3">{related}</td>
                       <td className="px-4 py-3 text-center font-bold">{document._count.lines}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${isDraft ? "bg-amber-100 text-amber-900" : document.status === "POSTED" ? "bg-emerald-100 text-emerald-900" : "bg-slate-100 text-slate-700"}`}>
-                          {isDraft ? "مسودة" : document.status === "POSTED" ? "معتمد" : "ملغي"}
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${isDraft ? "bg-amber-100 text-amber-900" : document.status === DocumentStatus.POSTED ? "bg-emerald-100 text-emerald-900" : "bg-slate-100 text-slate-700"}`}>
+                          {statusLabels[document.status]}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-left">
