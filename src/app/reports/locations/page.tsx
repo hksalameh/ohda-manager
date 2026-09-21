@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCenterInventoryBalances } from "@/lib/inventory-query";
-import { getLocationCustodyTotals } from "@/lib/custody-query";
+import { getAssignedCustodyTotalsAtLocation } from "@/lib/custody-query";
 import { PrintButton } from "@/components/print-button";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export default async function LocationInventoryReport({
   ]);
 
   const selectedLocation = locations.find((location) => location.id === locationId) ?? null;
-  const custodyTotals = selectedLocation ? await getLocationCustodyTotals(selectedLocation.id) : new Map<string, number>();
+  const custodyTotals = selectedLocation ? await getAssignedCustodyTotalsAtLocation(selectedLocation.id) : new Map<string, number>();
   const locationBalances = selectedLocation
     ? items
         .map((item) => {
