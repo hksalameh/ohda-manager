@@ -27,7 +27,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <div className="min-h-screen bg-slate-100 lg:pr-60">
           <aside className="no-print fixed inset-y-0 right-0 z-40 hidden w-60 flex-col bg-slate-800 px-4 py-5 text-white shadow-xl lg:flex">
             <div className="border-b border-slate-600 pb-4 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-slate-500 bg-white text-3xl text-slate-800">ع</div>
+              <img src="/official-logo-full.webp" alt="شعار جمعية المركز الإسلامي الخيرية" className="mx-auto h-32 w-auto max-w-[155px] object-contain" />
               <h1 className="mt-3 text-xl font-bold">إدارة العُهَد</h1>
               <div className="mt-2 text-sm text-slate-300"><CenterSwitcher /></div>
             </div>

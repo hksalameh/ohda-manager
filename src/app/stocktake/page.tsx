@@ -16,7 +16,7 @@ function isoDate(date = new Date()) {
 export default async function StocktakePage({
   searchParams,
 }: {
-  searchParams: Promise<{ locationId?: string; matched?: string }>;
+  searchParams: Promise<{ locationId?: string; matched?: string; error?: string }>;
 }) {
   const params = await searchParams;
   const center = await getCurrentCenter();
@@ -109,7 +109,7 @@ export default async function StocktakePage({
       </div>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <form method="get" className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+        <form action="/stocktake" method="get" className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
           <label className="text-sm font-medium text-slate-700">
             الغرفة / الموقع المراد جرده
             <select name="locationId" required defaultValue={selectedLocation?.id ?? ""} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base">
@@ -117,9 +117,13 @@ export default async function StocktakePage({
               {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
             </select>
           </label>
-          <button className="rounded-lg bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800">فتح الغرفة وبدء الجرد</button>
+          <button type="submit" className="rounded-lg bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800">فتح الغرفة وبدء الجرد</button>
         </form>
       </section>
+
+      {params.error === "no_counts" && selectedLocation ? (
+        <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-bold text-amber-950">أدخل كمية فعلية لمادة واحدة على الأقل، أو استخدم زر «اعتبار الظاهر مطابقًا» ثم احفظ الجرد.</section>
+      ) : null}
 
       {params.matched === "1" && selectedLocation ? (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-7 text-emerald-950">

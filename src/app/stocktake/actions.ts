@@ -50,7 +50,9 @@ export async function createStocktakeAdjustments(formData: FormData) {
     .map((itemId, index) => ({ itemId, actualRaw: actualValues[index] ?? "" }))
     .filter((row) => row.itemId && row.actualRaw !== "");
 
-  if (rows.length === 0) throw new Error("أدخل الكمية الفعلية لمادة واحدة على الأقل");
+  if (rows.length === 0) {
+    redirect(`/stocktake?locationId=${encodeURIComponent(locationId)}&error=no_counts`);
+  }
   if (new Set(rows.map((row) => row.itemId)).size !== rows.length) {
     throw new Error("لا يمكن تكرار المادة أكثر من مرة في نفس الجرد");
   }

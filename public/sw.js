@@ -1,4 +1,4 @@
-const CACHE_NAME = "ohda-shell-v2";
+const CACHE_NAME = "ohda-shell-v3";
 const CORE_ASSETS = ["/", "/manifest.webmanifest", "/ohda-icon.svg"];
 
 self.addEventListener("install", (event) => {

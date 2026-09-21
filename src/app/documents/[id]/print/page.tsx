@@ -77,7 +77,7 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
                   <div className="text-[18pt]">قسم اللوازم والمشتريات</div>
                 </div>
                 <div></div>
-                <div className="flex justify-center"><img src="/official-logo.svg" alt="شعار جمعية المركز الإسلامي الخيرية" className="h-[62px] w-auto" /></div>
+                <div className="flex justify-center"><img src="/official-logo-full.webp" alt="شعار جمعية المركز الإسلامي الخيرية" className="h-[82px] w-auto object-contain" /></div>
               </div>
 
               <h1 className="mt-3 text-center text-[20pt] font-bold">سند تسليم خاص بالعهدة الشخصية</h1>
@@ -109,9 +109,9 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
                 </tbody>
               </table>
 
-              <div className="mt-5 ml-auto w-[58%] text-[14pt] leading-7">
-                <div className="flex"><strong className="whitespace-nowrap">اسـم المستلـم:</strong><span className="mx-2 flex-1 border-b border-dotted border-black">""</span></div>
-                <div className="flex"><strong className="whitespace-nowrap">التـوقيـــع:</strong><span className="mx-2 flex-1 border-b border-dotted border-black">&nbsp;</span></div>
+              <div className="mt-5 text-right text-[14pt] leading-7">
+                <div><strong>اسـم المستلـم:</strong> ..............................................................................................</div>
+                <div><strong>التـوقيـــع:</strong> ................................................................................................</div>
                 <div><strong>الرقم الوظيفي:</strong> ( <span className="inline-block min-w-28 text-center">{employeeNo}</span> )</div>
               </div>
               <div className="mt-2 text-left text-[14pt] font-bold" dir="ltr">FIN/3/3/4</div>
