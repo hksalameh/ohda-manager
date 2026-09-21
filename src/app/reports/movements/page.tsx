@@ -16,6 +16,16 @@ const movementLabels: Record<MovementType, string> = {
   ADJUST_OUT: "تسوية نقص",
 };
 
+const inboundTypes = new Set<MovementType>([
+  MovementType.OPENING,
+  MovementType.RECEIPT,
+  MovementType.ADJUST_IN,
+]);
+const outboundTypes = new Set<MovementType>([
+  MovementType.ISSUE,
+  MovementType.ADJUST_OUT,
+]);
+
 function value(input: string | string[] | undefined) {
   return typeof input === "string" ? input.trim() : "";
 }
@@ -92,8 +102,8 @@ export default async function MovementsReport({
     return haystack.includes(q);
   });
 
-  const totalIn = filtered.reduce((sum, movement) => sum + ([MovementType.OPENING, MovementType.RECEIPT, MovementType.ADJUST_IN].includes(movement.movementType) ? movement.quantity : 0), 0);
-  const totalOut = filtered.reduce((sum, movement) => sum + ([MovementType.ISSUE, MovementType.ADJUST_OUT].includes(movement.movementType) ? movement.quantity : 0), 0);
+  const totalIn = filtered.reduce((sum, movement) => sum + (inboundTypes.has(movement.movementType) ? movement.quantity : 0), 0);
+  const totalOut = filtered.reduce((sum, movement) => sum + (outboundTypes.has(movement.movementType) ? movement.quantity : 0), 0);
 
   return (
     <div className="space-y-6">
