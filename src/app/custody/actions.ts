@@ -9,9 +9,12 @@ function text(formData: FormData, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-export async function renameEmployee(formData: FormData) {
+export async function updateEmployeeProfile(formData: FormData) {
   const employeeId = text(formData, "employeeId");
   const fullName = text(formData, "fullName");
+  const employeeNo = text(formData, "employeeNo") || null;
+  const jobTitle = text(formData, "jobTitle") || null;
+  const locationId = text(formData, "locationId") || null;
   if (!employeeId || !fullName) throw new Error("اسم الموظف مطلوب");
 
   const center = await getCurrentCenter();
@@ -19,14 +22,31 @@ export async function renameEmployee(formData: FormData) {
 
   const employee = await prisma.employee.findFirst({
     where: { id: employeeId, centerId: center.id, active: true },
-    select: { id: true },
+    include: { locationAssignments: { where: { isPrimary: true, endsAt: null }, take: 1 } },
   });
   if (!employee) throw new Error("الموظف غير موجود في المركز الحالي");
 
-  await prisma.employee.update({ where: { id: employeeId }, data: { fullName } });
+  if (employeeNo) {
+    const duplicate = await prisma.employee.findFirst({ where: { centerId: center.id, employeeNo, id: { not: employeeId } }, select: { id: true } });
+    if (duplicate) throw new Error("الرقم الوظيفي مستخدم لموظف آخر");
+  }
+  if (locationId) {
+    const location = await prisma.location.findFirst({ where: { id: locationId, centerId: center.id, active: true }, select: { id: true } });
+    if (!location) throw new Error("الغرفة المختارة غير صالحة");
+  }
+  const currentLocationId = employee.locationAssignments[0]?.locationId ?? null;
+  await prisma.$transaction(async (tx) => {
+    await tx.employee.update({ where: { id: employeeId }, data: { fullName, employeeNo, jobTitle } });
+    if (currentLocationId !== locationId) {
+      const now = new Date();
+      await tx.employeeLocationAssignment.updateMany({ where: { employeeId, isPrimary: true, endsAt: null }, data: { endsAt: now } });
+      if (locationId) await tx.employeeLocationAssignment.create({ data: { employeeId, locationId, startsAt: now, isPrimary: true } });
+    }
+  });
   revalidatePath("/custody");
   revalidatePath("/employees");
   revalidatePath(`/employees/${employeeId}`);
+  revalidatePath("/stocktake");
 }
 export async function renameLocation(formData: FormData) {
   const locationId = text(formData, "locationId");

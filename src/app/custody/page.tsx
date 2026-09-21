@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentCenter } from "@/lib/current-center";
-import { renameEmployee, renameLocation } from "./actions";
+import { updateEmployeeProfile, renameLocation } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -176,37 +176,66 @@ export default async function CustodyPage({
       </section>
 
       {mode === "employees" ? (
-        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {filteredEmployees.map((employee) => {
-            const stat = employeeStats.get(employee.id);
-            const location = employee.locationAssignments[0]?.location;
-            return (
-              <article key={employee.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">{employee.fullName}</h3>
-                    <p className="mt-1 text-sm text-slate-500">{employee.employeeNo ? `رقم وظيفي: ${employee.employeeNo}` : "بدون رقم وظيفي"}</p>
-                    <p className="mt-1 text-sm text-slate-500">{location?.name ?? "غير مرتبط بغرفة"}</p>
-                  </div>
-                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-800">{stat?.pieces ?? 0} قطعة</span>
+        <div className="space-y-5">
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h3 className="text-lg font-bold text-slate-900">الموظفون</h3>
+              <p className="mt-1 text-sm text-slate-500">اختر الموظف لتعديل بياناته وعرض عهدته من نفس الصفحة.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-[900px] w-full text-sm">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr><th className="px-4 py-3 text-right">اسم الموظف</th><th className="px-4 py-3 text-right">الرقم الوظيفي</th><th className="px-4 py-3 text-right">الوظيفة</th><th className="px-4 py-3 text-right">الغرفة</th><th className="px-4 py-3 text-center">الأصناف</th><th className="px-4 py-3 text-center">القطع</th><th className="px-4 py-3"></th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredEmployees.map((employee) => {
+                    const stat = employeeStats.get(employee.id);
+                    const location = employee.locationAssignments[0]?.location;
+                    const selected = selectedEmployee?.id === employee.id;
+                    return <tr key={employee.id} className={selected ? "bg-blue-50" : "hover:bg-slate-50"}>
+                      <td className="px-4 py-3 font-bold text-slate-900">{employee.fullName}</td>
+                      <td className="px-4 py-3">{employee.employeeNo ?? "—"}</td>
+                      <td className="px-4 py-3">{employee.jobTitle ?? "—"}</td>
+                      <td className="px-4 py-3">{location?.name ?? "—"}</td>
+                      <td className="px-4 py-3 text-center font-bold">{stat?.items.size ?? 0}</td>
+                      <td className="px-4 py-3 text-center font-bold">{stat?.pieces ?? 0}</td>
+                      <td className="px-4 py-3 text-left"><Link href={`/custody?mode=employees&employeeId=${employee.id}`} className={`rounded-lg px-4 py-2 text-xs font-bold ${selected ? "bg-slate-900 text-white" : "bg-blue-700 text-white"}`}>{selected ? "محدد" : "اختيار"}</Link></td>
+                    </tr>;
+                  })}
+                  {filteredEmployees.length === 0 ? <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">لا يوجد موظفون مطابقون للبحث.</td></tr> : null}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {selectedEmployee ? (() => {
+            const currentLocation = selectedEmployee.locationAssignments[0]?.location;
+            const stat = employeeStats.get(selectedEmployee.id);
+            return <section className="rounded-2xl border border-blue-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-2 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                <div><p className="text-xs font-bold text-blue-700">بيانات الموظف</p><h3 className="mt-1 text-xl font-bold text-slate-900">{selectedEmployee.fullName}</h3></div>
+                <div className="text-sm text-slate-500">{stat?.items.size ?? 0} صنف • {stat?.pieces ?? 0} قطعة عهدة</div>
+              </div>
+              <form action={updateEmployeeProfile} className="mt-5">
+                <input type="hidden" name="employeeId" value={selectedEmployee.id} />
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="min-w-[760px] w-full text-sm">
+                    <tbody className="divide-y divide-slate-100">
+                      <tr><th className="w-44 bg-slate-50 px-4 py-3 text-right">اسم الموظف</th><td className="px-4 py-3"><input name="fullName" required defaultValue={selectedEmployee.fullName} className="w-full rounded-lg border border-slate-300 px-3 py-2" /></td></tr>
+                      <tr><th className="bg-slate-50 px-4 py-3 text-right">الرقم الوظيفي</th><td className="px-4 py-3"><input name="employeeNo" defaultValue={selectedEmployee.employeeNo ?? ""} className="w-full rounded-lg border border-slate-300 px-3 py-2" /></td></tr>
+                      <tr><th className="bg-slate-50 px-4 py-3 text-right">المسمى الوظيفي</th><td className="px-4 py-3"><input name="jobTitle" defaultValue={selectedEmployee.jobTitle ?? ""} className="w-full rounded-lg border border-slate-300 px-3 py-2" /></td></tr>
+                      <tr><th className="bg-slate-50 px-4 py-3 text-right">الغرفة / الموقع</th><td className="px-4 py-3"><select name="locationId" defaultValue={currentLocation?.id ?? ""} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"><option value="">غير مرتبط بغرفة</option>{locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></td></tr>
+                    </tbody>
+                  </table>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-center text-sm">
-                  <div><span className="block text-slate-500">الأصناف</span><strong className="text-lg">{stat?.items.size ?? 0}</strong></div>
-                  <div><span className="block text-slate-500">القطع</span><strong className="text-lg">{stat?.pieces ?? 0}</strong></div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-bold text-white">حفظ التعديلات</button>
+                  <Link href={`/employees/${selectedEmployee.id}`} className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700">إرجاع / إدارة العهدة</Link>
+                  <Link href="/custody?mode=employees" className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium">إلغاء الاختيار</Link>
                 </div>
-                <form action={renameEmployee} className="mt-4 flex gap-2">
-                  <input type="hidden" name="employeeId" value={employee.id} />
-                  <input name="fullName" defaultValue={employee.fullName} className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-                  <button className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold">تعديل الاسم</button>
-                </form>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Link href={`/custody?mode=employees&employeeId=${employee.id}`} className="rounded-lg bg-blue-700 px-3 py-2.5 text-center text-sm font-bold text-white">عرض العهدة</Link>
-                  <Link href={`/employees/${employee.id}`} className="rounded-lg border border-slate-300 px-3 py-2.5 text-center text-sm font-bold">إدارة / إرجاع</Link>
-                </div>
-              </article>
-            );
-          })}
-          {filteredEmployees.length === 0 ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-slate-500">لا يوجد موظفون مطابقون للبحث.</p> : null}
+              </form>
+            </section>;
+          })() : <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">اختر موظفًا من الجدول أعلاه لتعديل بياناته وعرض عهدته.</section>}
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
