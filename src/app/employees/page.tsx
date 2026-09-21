@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getCurrentCenter } from "@/lib/current-center";
 import {
   changeEmployeePrimaryLocation,
   createCustodyDraftFromRoom,
@@ -9,9 +10,9 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function EmployeesPage() {
-  const center = await prisma.center.findUnique({ where: { code: "RAMTHA" } });
+  const center = await getCurrentCenter();
   if (!center) {
-    return <p className="rounded-xl border border-amber-200 bg-amber-50 p-4">يجب استيراد بيانات مركز الرمثا أولاً.</p>;
+    return <p className="rounded-xl border border-amber-200 bg-amber-50 p-4">لا يوجد مركز مفعّل بعد.</p>;
   }
 
   const [employees, locations] = await Promise.all([
@@ -71,7 +72,7 @@ export default async function EmployeesPage() {
       {employees.length === 0 ? (
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="font-bold text-slate-900">لم تتم إضافة الموظفين بعد</h3>
-          <p className="mt-2 text-sm leading-7 text-slate-600">بيانات Excel تحدد أماكن المواد، ويمكن الآن إضافة الموظفين وربطهم بهذه المواقع دون إعادة إدخال أي مادة.</p>
+          <p className="mt-2 text-sm leading-7 text-slate-600">يمكن إضافة موظفي المركز الحالي وربطهم بالمواقع دون إعادة إدخال أي مادة.</p>
         </section>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
