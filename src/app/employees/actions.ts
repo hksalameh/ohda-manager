@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getCurrentCenter } from "@/lib/current-center";
 import { ensureCustodyTemplate } from "@/lib/print-templates";
 
 function text(formData: FormData, key: string) {
@@ -18,8 +19,8 @@ export async function createEmployee(formData: FormData) {
 
   if (!fullName) throw new Error("اسم الموظف مطلوب");
 
-  const center = await prisma.center.findUnique({ where: { code: "RAMTHA" } });
-  if (!center) throw new Error("يجب استيراد بيانات مركز الرمثا أولاً");
+  const center = await getCurrentCenter();
+  if (!center) throw new Error("لا يوجد مركز مفعّل");
 
   if (employeeNo) {
     const duplicate = await prisma.employee.findFirst({
@@ -68,8 +69,8 @@ export async function changeEmployeePrimaryLocation(formData: FormData) {
   const locationId = text(formData, "locationId");
   if (!employeeId || !locationId) throw new Error("الموظف والموقع مطلوبان");
 
-  const center = await prisma.center.findUnique({ where: { code: "RAMTHA" } });
-  if (!center) throw new Error("مركز الرمثا غير موجود");
+  const center = await getCurrentCenter();
+  if (!center) throw new Error("لا يوجد مركز مفعّل");
 
   const [employee, location] = await Promise.all([
     prisma.employee.findFirst({ where: { id: employeeId, centerId: center.id, active: true } }),
@@ -95,8 +96,11 @@ export async function createCustodyDraftFromRoom(formData: FormData) {
   const employeeId = text(formData, "employeeId");
   if (!employeeId) throw new Error("الموظف مطلوب");
 
-  const employee = await prisma.employee.findUnique({
-    where: { id: employeeId },
+  const center = await getCurrentCenter();
+  if (!center) throw new Error("لا يوجد مركز مفعّل");
+
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, centerId: center.id },
     include: {
       center: true,
       locationAssignments: {
@@ -107,7 +111,7 @@ export async function createCustodyDraftFromRoom(formData: FormData) {
       },
     },
   });
-  if (!employee || !employee.active) throw new Error("الموظف غير موجود أو غير فعال");
+  if (!employee || !employee.active) throw new Error("الموظف غير موجود أو غير فعال في المركز الحالي");
 
   const assignment = employee.locationAssignments[0];
   if (!assignment) throw new Error("يجب ربط الموظف بغرفة/موقع قبل إنشاء سند العهدة");
