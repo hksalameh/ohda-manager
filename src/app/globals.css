@@ -30,7 +30,43 @@ textarea {
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  body {
+    color: #000 !important;
+    font-size: 11pt;
+  }
+
   .no-print {
     display: none !important;
+  }
+
+  .print-sheet {
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  .print-sheet table {
+    width: 100% !important;
+  }
+
+  .print-sheet thead {
+    display: table-header-group;
+  }
+
+  .print-sheet tr,
+  .print-sheet td,
+  .print-sheet th {
+    break-inside: avoid;
   }
 }
