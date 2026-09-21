@@ -3,6 +3,7 @@
 import { CounterpartyType, DocumentType } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getCurrentCenter } from "@/lib/current-center";
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -40,8 +41,8 @@ export async function createStockDocument(formData: FormData) {
   const documentType = typeValue === DocumentType.ISSUE ? DocumentType.ISSUE : typeValue === DocumentType.RECEIPT ? DocumentType.RECEIPT : null;
   if (!documentType) throw new Error("نوع المستند غير صالح");
 
-  const center = await prisma.center.findUnique({ where: { code: "RAMTHA" } });
-  if (!center) throw new Error("يجب استيراد بيانات مركز الرمثا أولاً");
+  const center = await getCurrentCenter();
+  if (!center) throw new Error("لا يوجد مركز مفعّل");
 
   const documentNo = text(formData, "documentNo") || null;
   const documentDate = parseDate(text(formData, "documentDate"), "تاريخ المستند");
@@ -51,7 +52,7 @@ export async function createStockDocument(formData: FormData) {
   const location = await prisma.location.findFirst({
     where: { id: locationId, centerId: center.id, active: true },
   });
-  if (!location) throw new Error("الموقع المختار غير صالح");
+  if (!location) throw new Error("الموقع المختار غير صالح للمركز الحالي");
 
   const itemIds = allText(formData, "itemId");
   const quantities = allText(formData, "quantity");
