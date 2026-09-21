@@ -14,6 +14,7 @@ const links = [
   { href: "/employees", label: "الموظفون" },
   { href: "/documents", label: "المستندات" },
   { href: "/stocktake", label: "الجرد والتسويات" },
+  { href: "/reports", label: "التقارير والبحث" },
   { href: "/settings/templates", label: "نماذج الطباعة" },
 ];
 
