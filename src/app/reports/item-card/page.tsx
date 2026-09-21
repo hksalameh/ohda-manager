@@ -46,10 +46,11 @@ export default async function ItemCardReport({
 
   const center = await prisma.center.findUnique({ where: { code: "RAMTHA" } });
   if (!center) return <p className="rounded-xl border border-amber-200 bg-amber-50 p-4">يجب استيراد بيانات مركز الرمثا أولاً.</p>;
+  const centerId = center.id;
 
   const [items, locations] = await Promise.all([
     prisma.item.findMany({ where: { active: true }, orderBy: [{ itemCode: "asc" }, { name: "asc" }], include: { unit: true } }),
-    prisma.location.findMany({ where: { centerId: center.id, active: true }, orderBy: { name: "asc" } }),
+    prisma.location.findMany({ where: { centerId, active: true }, orderBy: { name: "asc" } }),
   ]);
   const item = items.find((candidate) => candidate.id === itemId) ?? null;
   const selectedLocation = locations.find((location) => location.id === locationId) ?? null;
@@ -72,9 +73,9 @@ export default async function ItemCardReport({
       where: {
         itemId: item.id,
         OR: [
-          { document: { centerId: center.id } },
-          { fromLocation: { centerId: center.id } },
-          { toLocation: { centerId: center.id } },
+          { document: { centerId } },
+          { fromLocation: { centerId } },
+          { toLocation: { centerId } },
         ],
       },
       include: {
@@ -94,8 +95,8 @@ export default async function ItemCardReport({
         if (movement.toLocationId === selectedLocation.id) result += movement.quantity;
         if (movement.fromLocationId === selectedLocation.id) result -= movement.quantity;
       } else {
-        if (movement.toLocation?.centerId === center.id) result += movement.quantity;
-        if (movement.fromLocation?.centerId === center.id) result -= movement.quantity;
+        if (movement.toLocation?.centerId === centerId) result += movement.quantity;
+        if (movement.fromLocation?.centerId === centerId) result -= movement.quantity;
       }
       return result;
     }
