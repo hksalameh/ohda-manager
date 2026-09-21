@@ -43,25 +43,25 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
     const centerName = document.centerNameSnapshot ?? document.center.name;
     const employeeName = document.employeeNameSnapshot ?? document.employee?.fullName ?? "";
     const d = document.documentDate;
-    const date = `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`;
+    const date = `${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${String(d.getUTCDate()).padStart(2, "0")}`;
 
     return (
       <div className="custody-print-root -mx-4 -my-6 bg-slate-100 p-4 md:-mx-6 md:-my-8 md:p-8">
         <style>{`
           @page { size: A4 portrait; margin: 0; }
-          .custody-sheet { width:210mm; height:297mm; position:relative; overflow:hidden; background:#fff; color:#000; font-family:Arial,Tahoma,sans-serif; }
-          .custody-bismillah { position:absolute; top:8.4mm; left:27mm; width:156mm; text-align:center; font-family:"Times New Roman",serif; font-size:12pt; line-height:1; }
-          .custody-org { position:absolute; top:15.2mm; right:25.1mm; width:88mm; text-align:center; font-weight:700; line-height:1.22; white-space:nowrap; }
+          .custody-sheet { width:210mm; height:297mm; position:relative; overflow:hidden; background:#fff; color:#000; font-family:"Arabic Transparent","Traditional Arabic","Simplified Arabic",Tahoma,Arial,sans-serif; }
+          .custody-bismillah { position:absolute; top:8.4mm; left:27mm; width:156mm; text-align:center; font-family:"Arabic Transparent","Traditional Arabic","Simplified Arabic",serif; font-size:12pt; line-height:1; }
+          .custody-org { position:absolute; top:14.0mm; right:16mm; width:72mm; text-align:center; font-weight:700; line-height:1.0; white-space:nowrap; }
           .custody-org .line1 { font-size:17pt; }
           .custody-org .line2 { font-size:17pt; }
           .custody-org .line3 { font-size:18pt; }
-          .custody-logo { position:absolute; top:25.25mm; left:48.6mm; width:15mm; height:16.3mm; object-fit:contain; display:block; }
-          .custody-head-rule { position:absolute; top:54.0mm; left:25.1mm; width:159.8mm; border-top:1.2mm double #000; }
-          .custody-title { position:absolute; top:61.3mm; left:27mm; width:156mm; text-align:center; font-size:20pt; line-height:1; font-weight:700; }
-          .custody-center { position:absolute; top:69.6mm; right:27mm; font-size:14pt; line-height:1; white-space:nowrap; }
-          .custody-date { position:absolute; top:69.6mm; left:27mm; font-size:14pt; line-height:1; white-space:nowrap; direction:rtl; }
-          .custody-intro { position:absolute; top:76.0mm; right:27mm; width:156mm; text-align:right; font-size:14pt; line-height:1; white-space:nowrap; }
-          .custody-table { position:absolute; top:83.0mm; left:20.8mm; width:168.2mm; border-collapse:collapse; table-layout:fixed; direction:rtl; font-family:Arial,Tahoma,sans-serif; font-size:11pt; border:0.7mm double #000; }
+          .custody-logo { position:absolute; top:14.8mm; left:48.6mm; width:15mm; height:16.3mm; object-fit:contain; display:block; }
+          .custody-head-rule { position:absolute; top:33.4mm; left:25.1mm; width:159.8mm; border-top:0.55mm solid #000; }
+          .custody-title { position:absolute; top:45.3mm; left:27mm; width:156mm; text-align:center; font-size:20pt; line-height:1; font-weight:700; }
+          .custody-center { position:absolute; top:57.0mm; right:27mm; font-size:14pt; line-height:1; white-space:nowrap; }
+          .custody-date { position:absolute; top:57.0mm; left:38mm; font-size:14pt; line-height:1; white-space:nowrap; direction:rtl; }
+          .custody-intro { position:absolute; top:65.4mm; right:27mm; width:156mm; text-align:right; font-size:14pt; line-height:1; white-space:nowrap; }
+          .custody-table { position:absolute; top:74.5mm; left:20.8mm; width:168.2mm; border-collapse:collapse; table-layout:fixed; direction:rtl; font-family:Arial,Tahoma,sans-serif; font-size:11pt; border:0.7mm double #000; }
           .custody-table col.code { width:36.67mm; } .custody-table col.name { width:111.28mm; } .custody-table col.qty { width:19.91mm; }
           .custody-table thead tr { height:5.79mm; } .custody-table tbody tr { height:6.91mm; }
           .custody-table th { border:0.7mm double #000; padding:0 1mm; text-align:center; vertical-align:middle; font-family:"Simplified Arabic",Arial,Tahoma,sans-serif; font-weight:700; line-height:1; }
@@ -97,8 +97,8 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
               <img src="/custody-official-logo.jpg" alt="شعار جمعية المركز الإسلامي الخيرية" className="custody-logo" />
               <div className="custody-head-rule" />
               <div className="custody-title">سند تسليم خاص بالعهدة الشخصية</div>
-              <div className="custody-center">اسم المركز: {centerName}</div>
-              <div className="custody-date">التاريخ: {date}</div>
+              <div className="custody-center">اسم المركز : {centerName}</div>
+              <div className="custody-date">التاريخ : {date}</div>
               <div className="custody-intro">تم تسليم المواد المذكورة أدناه للسيد: {employeeName}</div>
               <table className="custody-table">
                 <colgroup><col className="code"/><col className="name"/><col className="qty"/></colgroup>
