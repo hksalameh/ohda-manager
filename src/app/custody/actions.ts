@@ -48,10 +48,13 @@ export async function updateEmployeeProfile(formData: FormData) {
   revalidatePath(`/employees/${employeeId}`);
   revalidatePath("/stocktake");
 }
-export async function renameLocation(formData: FormData) {
+export async function updateLocationProfile(formData: FormData) {
   const locationId = text(formData, "locationId");
   const name = text(formData, "name");
+  const code = text(formData, "code") || null;
+  const type = text(formData, "type");
   if (!locationId || !name) throw new Error("اسم الغرفة مطلوب");
+  if (!["ROOM","OFFICE","DEPARTMENT","STORE","HALL","OTHER"].includes(type)) throw new Error("نوع الموقع غير صالح");
 
   const center = await getCurrentCenter();
   if (!center) throw new Error("لا يوجد مركز مفعّل");
@@ -67,8 +70,12 @@ export async function renameLocation(formData: FormData) {
     select: { id: true },
   });
   if (duplicate) throw new Error("يوجد موقع آخر بنفس الاسم");
+  if (code) {
+    const duplicateCode = await prisma.location.findFirst({ where: { centerId: center.id, code, id: { not: locationId } }, select: { id: true } });
+    if (duplicateCode) throw new Error("رمز الموقع مستخدم لموقع آخر");
+  }
 
-  await prisma.location.update({ where: { id: locationId }, data: { name } });
+  await prisma.location.update({ where: { id: locationId }, data: { name, code, type: type as any } });
   revalidatePath("/custody");
   revalidatePath("/locations");
   revalidatePath("/stocktake");

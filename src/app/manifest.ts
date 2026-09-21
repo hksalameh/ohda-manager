@@ -11,6 +11,8 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#0f172a",
     dir: "rtl",
     lang: "ar",
+    orientation: "any",
+    categories: ["business", "productivity"],
     icons: [
       {
         src: "/ohda-icon.svg",
