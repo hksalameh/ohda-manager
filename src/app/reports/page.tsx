@@ -21,6 +21,11 @@ const reports = [
     title: "سجل الحركات",
     description: "بحث وطباعة جميع حركات المواد حسب الفترة والنوع والموقع واسم أو رقم المادة.",
   },
+  {
+    href: "/reports/adjustments",
+    title: "فروقات الجرد والتسويات",
+    description: "عرض الكمية المسجلة قبل الجرد، الموجود الفعلي، فرق الزيادة أو النقص، وحالة اعتماد التسوية.",
+  },
 ];
 
 export default function ReportsPage() {
