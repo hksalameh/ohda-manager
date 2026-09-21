@@ -66,6 +66,7 @@ export default async function HomePage() {
             <Link href="/stocktake" className="rounded-lg bg-blue-600 px-4 py-3 text-center text-sm font-bold text-white hover:bg-blue-500">بدء جرد غرفة</Link>
             <Link href="/documents/new?type=receipt" className="rounded-lg bg-emerald-600 px-4 py-3 text-center text-sm font-bold text-white hover:bg-emerald-500">سند إدخال</Link>
             <Link href="/documents/new?type=issue" className="rounded-lg bg-amber-500 px-4 py-3 text-center text-sm font-bold text-white hover:bg-amber-400">سند إخراج</Link>
+            <Link href="/custody" className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-3 text-center text-sm font-bold text-blue-800 hover:bg-blue-100">استعراض العُهد</Link>
             <Link href="/documents" className="rounded-lg border border-slate-300 px-4 py-3 text-center text-sm font-bold text-slate-700 hover:bg-slate-50">كل المستندات</Link>
           </div>
         </aside>
@@ -73,8 +74,8 @@ export default async function HomePage() {
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h3 className="text-lg font-bold text-slate-900">الوصول السريع</h3>
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-          {[['/items','المواد'],['/locations','الغرف'],['/employees','الموظفون'],['/documents','المستندات'],['/reports','التقارير'],['/stocktake','الجرد']].map(([href,label]) => (
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+          {[['/items','المواد'],['/custody','العُهد'],['/stocktake','الجرد'],['/documents','المستندات'],['/reports','التقارير']].map(([href,label]) => (
             <Link key={href} href={href} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-bold text-slate-700 hover:border-blue-300 hover:bg-blue-50">{label}</Link>
           ))}
         </div>

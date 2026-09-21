@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCenterInventoryBalances } from "@/lib/inventory-query";
+import { getCurrentCenter } from "@/lib/current-center";
 import { addHistoricalReceiptSource, updateItem } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ const movementLabels: Record<string, string> = {
 
 export default async function ItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const center = await prisma.center.findUnique({ where: { code: "RAMTHA" } });
+  const center = await getCurrentCenter();
   if (!center) notFound();
 
   const [item, locations, balances] = await Promise.all([

@@ -14,11 +14,10 @@ export const metadata: Metadata = {
 const links = [
   { href: "/", label: "الرئيسية" },
   { href: "/items", label: "المواد" },
-  { href: "/locations", label: "المواقع والغرف" },
-  { href: "/employees", label: "الموظفون" },
-  { href: "/documents", label: "المستندات" },
-  { href: "/stocktake", label: "الجرد والتسويات" },
-  { href: "/reports", label: "التقارير والبحث" },
+  { href: "/custody", label: "العُهد" },
+  { href: "/stocktake", label: "الجرد" },
+  { href: "/documents", label: "المستندات والسندات" },
+  { href: "/reports", label: "التقارير" },
 ];
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

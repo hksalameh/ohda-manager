@@ -94,7 +94,7 @@ export default async function ItemsPage({
                     <td className="px-4 py-3 text-left">
                       <div className="flex justify-end gap-2">
                         <Link href={`/reports/item-card?itemId=${encodeURIComponent(item.id)}`} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800 hover:bg-blue-100">بطاقة الصنف</Link>
-                        <Link href={`/items/${item.id}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold hover:bg-slate-50">التفاصيل</Link>
+                        <Link href={`/items/${item.id}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold hover:bg-slate-50">كل تفاصيل المادة</Link>
                       </div>
                     </td>
                   </tr>

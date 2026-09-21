@@ -42,24 +42,43 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
     const pages = chunk(document.lines, rowsPerPage);
     const centerName = document.centerNameSnapshot ?? document.center.name;
     const employeeName = document.employeeNameSnapshot ?? document.employee?.fullName ?? "";
-    const employeeNo = document.employeeNoSnapshot ?? document.employee?.employeeNo ?? "";
-    const date = document.documentDate.toLocaleDateString("ar-JO");
+    const d = document.documentDate;
+    const date = `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`;
 
     return (
-      <div className="print-wrapper -mx-4 -my-6 bg-slate-100 p-4 md:-mx-6 md:-my-8 md:p-8">
+      <div className="custody-print-root -mx-4 -my-6 bg-slate-100 p-4 md:-mx-6 md:-my-8 md:p-8">
         <style>{`
-          @page { size: A4 portrait; margin: 8mm 20mm; }
-          .official-table { border: 3px double #000; }
-          .official-table th { border: 3px double #000; }
-          .official-table td { border: 1px solid #000; }
-          .official-table tbody tr:last-child td { border-bottom: 3px double #000; }
+          @page { size: A4 portrait; margin: 0; }
+          .custody-sheet { width:210mm; height:297mm; position:relative; overflow:hidden; background:#fff; color:#000; font-family:Arial,Tahoma,sans-serif; }
+          .custody-bismillah { position:absolute; top:8.4mm; left:27mm; width:156mm; text-align:center; font-family:"Times New Roman",serif; font-size:12pt; line-height:1; }
+          .custody-org { position:absolute; top:15.2mm; right:25.1mm; width:88mm; text-align:center; font-weight:700; line-height:1.22; white-space:nowrap; }
+          .custody-org .line1 { font-size:17pt; }
+          .custody-org .line2 { font-size:17pt; }
+          .custody-org .line3 { font-size:18pt; }
+          .custody-logo { position:absolute; top:25.25mm; left:48.6mm; width:15mm; height:16.3mm; object-fit:contain; display:block; }
+          .custody-head-rule { position:absolute; top:54.0mm; left:25.1mm; width:159.8mm; border-top:1.2mm double #000; }
+          .custody-title { position:absolute; top:61.3mm; left:27mm; width:156mm; text-align:center; font-size:20pt; line-height:1; font-weight:700; }
+          .custody-center { position:absolute; top:69.6mm; right:27mm; font-size:14pt; line-height:1; white-space:nowrap; }
+          .custody-date { position:absolute; top:69.6mm; left:27mm; font-size:14pt; line-height:1; white-space:nowrap; direction:rtl; }
+          .custody-intro { position:absolute; top:76.0mm; right:27mm; width:156mm; text-align:right; font-size:14pt; line-height:1; white-space:nowrap; }
+          .custody-table { position:absolute; top:83.0mm; left:20.8mm; width:168.2mm; border-collapse:collapse; table-layout:fixed; direction:rtl; font-family:Arial,Tahoma,sans-serif; font-size:11pt; border:0.7mm double #000; }
+          .custody-table col.code { width:36.67mm; } .custody-table col.name { width:111.28mm; } .custody-table col.qty { width:19.91mm; }
+          .custody-table thead tr { height:5.79mm; } .custody-table tbody tr { height:6.91mm; }
+          .custody-table th { border:0.7mm double #000; padding:0 1mm; text-align:center; vertical-align:middle; font-family:"Simplified Arabic",Arial,Tahoma,sans-serif; font-weight:700; line-height:1; }
+          .custody-table td { border:0.2mm solid #000; padding:0 1.2mm; text-align:center; vertical-align:middle; line-height:1.05; overflow-wrap:anywhere; }
+          .custody-table td.code { font-family:Arial,sans-serif; font-size:11pt; direction:ltr; }
+          .custody-table td.name { direction:rtl; }
+          .custody-table td.qty { font-family:Arial,sans-serif; font-size:11pt; direction:ltr; }
+          .custody-signatures { position:absolute; top:263.1mm; right:27mm; width:88mm; font-size:14pt; line-height:1.55; text-align:right; }
+          .custody-signatures .dots { font-size:5pt; font-weight:400; letter-spacing:0; }
+          .custody-form-code { position:absolute; top:279.0mm; left:27mm; font-family:Arial,sans-serif; font-size:14pt; font-weight:700; direction:ltr; }
           @media print {
-            body { background: white !important; }
-            header, aside { display: none !important; }
-            main { padding: 0 !important; margin: 0 !important; }
-            .print-wrapper { padding: 0 !important; margin: 0 !important; background: white !important; }
-            .custody-official { box-shadow: none !important; margin: 0 !important; width: 100% !important; min-height: 282mm !important; }
-            .custody-official:not(:last-child) { break-after: page; page-break-after: always; }
+            html, body { margin:0 !important; padding:0 !important; background:#fff !important; }
+            header, aside, .no-print { display:none !important; }
+            main { margin:0 !important; padding:0 !important; max-width:none !important; min-height:0 !important; }
+            .custody-print-root { margin:0 !important; padding:0 !important; background:#fff !important; }
+            .custody-sheet { margin:0 !important; box-shadow:none !important; break-after:page; page-break-after:always; }
+            .custody-sheet:last-child { break-after:auto; page-break-after:auto; }
           }
         `}</style>
         <div className="no-print mx-auto mb-4 flex max-w-[210mm] items-center justify-between gap-3">
@@ -68,53 +87,33 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
         </div>
         <div className="space-y-5 print:space-y-0">
           {pages.map((lines, pageIndex) => (
-            <section key={pageIndex} className="custody-official mx-auto flex min-h-[282mm] w-[210mm] max-w-full flex-col bg-white px-[20mm] py-[8mm] text-[12px] text-black shadow-lg">
-              <div className="text-center text-[12pt] font-bold">بسم الله الرحمن الرحيم</div>
-              <div className="mt-1 grid grid-cols-[1fr_90px_1fr] items-end border-b-[3px] border-double border-black pb-2">
-                <div className="text-center text-[16pt] leading-7 font-bold">
-                  <div>جمعية المركز الإسلامي الخيرية</div>
-                  <div>الإدارة العامة – الدائرة المالية</div>
-                  <div className="text-[18pt]">قسم اللوازم والمشتريات</div>
-                </div>
-                <div></div>
-                <div className="flex justify-center"><img src="/official-logo-full.webp" alt="شعار جمعية المركز الإسلامي الخيرية" className="h-[82px] w-auto object-contain" /></div>
+            <section key={pageIndex} className="custody-sheet mx-auto shadow-lg">
+              <div className="custody-bismillah">بسم الله الرحمن الرحيم</div>
+              <div className="custody-org">
+                <div className="line1">جمعية المركز الإسلامي الخيرية</div>
+                <div className="line2">الإدارة العامة - الدائرة المالية</div>
+                <div className="line3">قسم اللوازم والمشتريات</div>
               </div>
-
-              <h1 className="mt-3 text-center text-[20pt] font-bold">سند تسليم خاص بالعهدة الشخصية</h1>
-              <div className="mt-3 flex items-center justify-between text-[14pt] font-bold">
-                <div>اسم المركز: <span className="font-normal">{centerName}</span></div>
-                <div>التاريخ: <span className="font-normal">{date}</span></div>
-              </div>
-              <p className="mt-3 text-[14pt] font-bold">تم تسليم المواد المذكورة أدناه للسيد: <span className="font-normal">{employeeName}</span></p>
-
-              <table className="official-table mt-3 w-full table-fixed border-collapse text-[11pt]">
-                <thead>
-                  <tr>
-                    <th className="w-[23%] border border-black px-2 py-1.5">رقم المادة</th>
-                    <th className="border border-black px-2 py-1.5">المـــــــادة</th>
-                    <th className="w-[12%] border border-black px-2 py-1.5">الكمية</th>
-                  </tr>
-                </thead>
+              <img src="/custody-official-logo.jpg" alt="شعار جمعية المركز الإسلامي الخيرية" className="custody-logo" />
+              <div className="custody-head-rule" />
+              <div className="custody-title">سند تسليم خاص بالعهدة الشخصية</div>
+              <div className="custody-center">اسم المركز: {centerName}</div>
+              <div className="custody-date">التاريخ: {date}</div>
+              <div className="custody-intro">تم تسليم المواد المذكورة أدناه للسيد: {employeeName}</div>
+              <table className="custody-table">
+                <colgroup><col className="code"/><col className="name"/><col className="qty"/></colgroup>
+                <thead><tr><th>رقم المادة</th><th>المـــــــادة</th><th>الكمية</th></tr></thead>
                 <tbody>
-                  {lines.map((line) => (
-                    <tr key={line.id}>
-                      <td className="border border-black px-2 py-1 font-mono text-[10px]">{line.itemCodeSnapshot ?? ""}</td>
-                      <td className="border border-black px-2 py-1 leading-5">{line.itemNameSnapshot}</td>
-                      <td className="border border-black px-2 py-1 text-center font-bold">{line.quantity}</td>
-                    </tr>
-                  ))}
-                  {Array.from({ length: Math.max(0, rowsPerPage - lines.length + 1) }).map((_, index) => (
-                    <tr key={`empty-${index}`}><td className="h-6 border border-black">&nbsp;</td><td className="border border-black">&nbsp;</td><td className="border border-black">&nbsp;</td></tr>
-                  ))}
+                  {lines.map((line) => <tr key={line.id}><td className="code">{line.itemCodeSnapshot ?? ""}</td><td className="name">{line.itemNameSnapshot}</td><td className="qty">{line.quantity}</td></tr>)}
+                  {Array.from({ length: Math.max(0, 24 - lines.length) }).map((_, index) => <tr key={`empty-${index}`}><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>)}
                 </tbody>
               </table>
-
-              <div className="mt-5 text-right text-[14pt] leading-7">
-                <div><strong>اسـم المستلـم:</strong> ..............................................................................................</div>
-                <div><strong>التـوقيـــع:</strong> ................................................................................................</div>
-                <div><strong>الرقم الوظيفي:</strong> ( <span className="inline-block min-w-28 text-center">{employeeNo}</span> )</div>
+              <div className="custody-signatures">
+                <div><strong>اسـم المستلـم:</strong> <span className="dots">..............................................................................................</span></div>
+                <div><strong>التـوقيـــع:</strong> <span className="dots">................................................................................................</span></div>
+                <div><strong>الرقم الوظيفي:</strong> ( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</div>
               </div>
-              <div className="mt-2 text-left text-[14pt] font-bold" dir="ltr">FIN/3/3/4</div>
+              <div className="custody-form-code">FIN/3/3/4</div>
             </section>
           ))}
         </div>

@@ -81,6 +81,10 @@ export function StocktakeForm({
       .filter((item) => matches(item, extraSearch)),
     [allItems, expectedIds, extraSearch],
   );
+  const allSearchResults = useMemo(
+    () => extraSearch.trim() ? allItems.filter((item) => matches(item, extraSearch)).slice(0, 20) : [],
+    [allItems, extraSearch],
+  );
 
   useEffect(() => {
     setOnline(navigator.onLine);
@@ -153,6 +157,12 @@ export function StocktakeForm({
       for (const item of visibleExpected) next[item.id] = String(item.systemQuantity);
       return next;
     });
+  }
+
+  function addExtraItem(itemId: string) {
+    if (!itemId || expectedIds.has(itemId) || selectedExtraIds.has(itemId)) return;
+    setExtras((current) => [...current, { key: nextKey, itemId, actualQuantity: "1" }]);
+    setNextKey((value) => value + 1);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -232,10 +242,36 @@ export function StocktakeForm({
         </div>
       </section>
 
+      <section className="rounded-2xl border border-blue-200 bg-white shadow-sm">
+        <div className="border-b border-blue-100 p-4">
+          <h3 className="text-lg font-bold text-slate-900">إدارة مواد الغرفة</h3>
+          <p className="mt-1 text-sm leading-7 text-slate-600">ابحث في جميع مواد النظام. يمكنك إضافة مادة غير موجودة في الغرفة، أما إزالة مادة مسجلة فتتم من قائمتها أدناه حتى تبقى الحركة محفوظة في السجل.</p>
+          <input value={extraSearch} onChange={(event) => setExtraSearch(event.target.value)} placeholder="ابحث في جميع المواد بالاسم أو رقم المادة" className="mt-3 w-full rounded-xl border border-slate-300 px-4 py-3 text-base" />
+        </div>
+        {extraSearch.trim() ? (
+          <div className="divide-y divide-slate-100">
+            {allSearchResults.map((item) => {
+              const inRoom = expectedIds.has(item.id);
+              const alreadyAdded = selectedExtraIds.has(item.id);
+              return (
+                <div key={item.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2"><strong className="text-slate-900">{item.name}</strong>{item.itemCode ? <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs text-slate-600">{item.itemCode}</span> : null}</div>
+                    <p className="mt-1 text-xs text-slate-500">{item.unitName ?? "بدون وحدة محددة"}</p>
+                  </div>
+                  {inRoom ? <span className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800">موجودة في الغرفة</span> : alreadyAdded ? <span className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-blue-800">مضافة إلى الجرد</span> : <button type="button" onClick={() => addExtraItem(item.id)} className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-800">+ إضافة إلى الغرفة</button>}
+                </div>
+              );
+            })}
+            {allSearchResults.length === 0 ? <p className="p-5 text-sm text-slate-500">لا توجد مادة مطابقة للبحث.</p> : null}
+          </div>
+        ) : <p className="p-4 text-sm text-slate-500">ابدأ بكتابة اسم المادة أو رقمها لعرض النتائج من جميع المواد.</p>}
+      </section>
+
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 p-4">
           <h3 className="font-bold text-slate-900">المواد المسجلة في {locationName}</h3>
-          <p className="mt-1 text-xs leading-6 text-slate-500">ابحث ثم سجّل ما وجدته فعلياً. زر «مطابق» ينسخ رصيد النظام مباشرة، وزر «صفر» يعني أنك تأكدت أن المادة غير موجودة.</p>
+          <p className="mt-1 text-xs leading-6 text-slate-500">ابحث ثم سجّل ما وجدته فعلياً. زر «مطابق» ينسخ رصيد النظام مباشرة، وزر «إزالة من الغرفة» يسجل الكمية الفعلية صفراً ويجهز تسوية نقص للمراجعة.</p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ابحث باسم المادة أو رقمها" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-3 text-base" />
             <button type="button" onClick={confirmVisibleAsMatching} disabled={visibleExpected.length === 0} className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 enabled:hover:bg-emerald-100 disabled:opacity-50">اعتبار الظاهر مطابقًا</button>
@@ -262,10 +298,15 @@ export function StocktakeForm({
                     </div>
                     <div className="flex items-center gap-2">
                       <button type="button" onClick={() => setCount(item.id, String(item.systemQuantity))} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">مطابق</button>
-                      <button type="button" onClick={() => setCount(item.id, "0")} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700">صفر</button>
+                      {counts[item.id] === "0" ? (
+                        <button type="button" onClick={() => setCount(item.id, "")} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">تراجع عن الإزالة</button>
+                      ) : (
+                        <button type="button" onClick={() => setCount(item.id, "0")} className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">إزالة من الغرفة</button>
+                      )}
                       <input name="actualQuantity" type="number" min={0} step={1} inputMode="numeric" value={counts[item.id] ?? ""} onChange={(event) => setCount(item.id, event.target.value)} className="w-24 rounded-lg border border-slate-300 px-2 py-2 text-center text-base font-bold" placeholder="الفعلي" />
                     </div>
                   </div>
+                  {counts[item.id] === "0" ? <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">سيتم تسجيل هذه المادة كغير موجودة في الغرفة، ولن تُحذف من سجل النظام.</p> : null}
                 </div>
               );
             })}
@@ -275,12 +316,8 @@ export function StocktakeForm({
 
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 p-4">
-          <h3 className="font-bold text-slate-900">مادة وجدتها في الغرفة لكنها غير مسجلة فيها</h3>
-          <p className="mt-1 text-xs leading-6 text-slate-500">ابحث عن المادة ثم أضفها، وبعدها اكتب الكمية الموجودة فعلياً.</p>
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <input value={extraSearch} onChange={(event) => setExtraSearch(event.target.value)} placeholder="ابحث في جميع المواد" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-3 text-base" />
-            <button type="button" onClick={() => { setExtras((current) => [...current, { key: nextKey, itemId: "", actualQuantity: "1" }]); setNextKey((value) => value + 1); }} className="rounded-xl bg-blue-700 px-4 py-3 text-sm font-bold text-white hover:bg-blue-800">+ إضافة مادة</button>
-          </div>
+          <h3 className="font-bold text-slate-900">مواد ستُضاف إلى الغرفة</h3>
+          <p className="mt-1 text-xs leading-6 text-slate-500">المواد التي اخترتها من «إدارة مواد الغرفة» تظهر هنا. عدّل الكمية أو احذف الإضافة قبل حفظ الجرد.</p>
         </div>
 
         {extras.length === 0 ? (
@@ -294,7 +331,7 @@ export function StocktakeForm({
                     المادة {index + 1}
                     <select name="itemId" required value={line.itemId} onChange={(event) => setExtras((current) => current.map((entry) => entry.key === line.key ? { ...entry, itemId: event.target.value } : entry))} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-3">
                       <option value="">اختر المادة</option>
-                      {extraCandidates.filter((item) => !selectedExtraIds.has(item.id) || item.id === line.itemId).map((item) => <option key={item.id} value={item.id}>{item.itemCode ? `${item.itemCode} — ` : ""}{item.name}</option>)}
+                      {allItems.filter((item) => !expectedIds.has(item.id)).filter((item) => item.id === line.itemId || matches(item, extraSearch)).filter((item) => !selectedExtraIds.has(item.id) || item.id === line.itemId).map((item) => <option key={item.id} value={item.id}>{item.itemCode ? `${item.itemCode} — ` : ""}{item.name}</option>)}
                     </select>
                   </label>
                   <label className="text-sm font-medium text-slate-700">
