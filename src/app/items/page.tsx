@@ -4,7 +4,17 @@ import { getCenterInventoryBalances } from "@/lib/inventory-query";
 
 export const dynamic = "force-dynamic";
 
-export default async function ItemsPage() {
+function value(input: string | string[] | undefined) {
+  return typeof input === "string" ? input.trim() : "";
+}
+
+export default async function ItemsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const q = value(params.q);
   const center = await prisma.center.findUnique({ where: { code: "RAMTHA" } });
   if (!center) {
     return <p className="rounded-xl border border-amber-200 bg-amber-50 p-4">يجب استيراد بيانات مركز الرمثا أولاً.</p>;
@@ -12,7 +22,16 @@ export default async function ItemsPage() {
 
   const [items, balances] = await Promise.all([
     prisma.item.findMany({
-      where: { active: true },
+      where: {
+        active: true,
+        ...(q ? {
+          OR: [
+            { itemCode: { contains: q } },
+            { name: { contains: q } },
+            { legacyLedgerPageNo: { contains: q } },
+          ],
+        } : {}),
+      },
       orderBy: [{ itemCode: "asc" }, { name: "asc" }],
       include: {
         unit: true,
@@ -36,9 +55,16 @@ export default async function ItemsPage() {
         <Link href="/items/new" className="rounded-lg bg-blue-700 px-4 py-2.5 text-center text-sm font-bold text-white hover:bg-blue-800">+ مادة جديدة</Link>
       </div>
 
+      <form className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row">
+        <input name="q" defaultValue={q} placeholder="ابحث باسم المادة أو رقمها أو صفحة الدفتر" className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5" />
+        <button className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-bold text-white">بحث</button>
+        {q ? <Link href="/items" className="rounded-lg border border-slate-300 px-5 py-2.5 text-center text-sm font-medium hover:bg-slate-50">مسح البحث</Link> : null}
+      </form>
+
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 px-4 py-3 text-sm text-slate-500">عدد المواد الظاهرة: <strong className="text-slate-900">{items.length}</strong></div>
         <div className="overflow-x-auto">
-          <table className="min-w-[900px] w-full text-sm">
+          <table className="min-w-[980px] w-full text-sm">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
                 <th className="px-4 py-3 text-right font-semibold">رقم المادة</th>
@@ -64,10 +90,16 @@ export default async function ItemsPage() {
                     <td className="px-4 py-3 text-center text-base font-bold text-emerald-800">{current}</td>
                     <td className="px-4 py-3 text-center">{opening?.ledgerPageNo ?? item.legacyLedgerPageNo ?? "—"}</td>
                     <td className="px-4 py-3 text-center">{item.unit?.name ?? "—"}</td>
-                    <td className="px-4 py-3 text-left"><Link href={`/items/${item.id}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold hover:bg-slate-50">التفاصيل</Link></td>
+                    <td className="px-4 py-3 text-left">
+                      <div className="flex justify-end gap-2">
+                        <Link href={`/reports/item-card?itemId=${encodeURIComponent(item.id)}`} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800 hover:bg-blue-100">بطاقة الصنف</Link>
+                        <Link href={`/items/${item.id}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold hover:bg-slate-50">التفاصيل</Link>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
+              {items.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">لا توجد مواد مطابقة للبحث.</td></tr> : null}
             </tbody>
           </table>
         </div>
