@@ -1,4 +1,4 @@
-const CACHE_NAME = "ohda-shell-v1";
+const CACHE_NAME = "ohda-shell-v2";
 const CORE_ASSETS = ["/", "/manifest.webmanifest", "/ohda-icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -20,12 +20,26 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  // Always fetch dynamic Next.js data and APIs from the server when online.
+  // Caching these responses can make inventory and stocktake screens show stale data.
+  const isDynamicData =
+    url.pathname.startsWith("/api/") ||
+    url.searchParams.has("_rsc") ||
+    request.headers.get("rsc") === "1";
+
+  if (isDynamicData) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
           return response;
         })
         .catch(async () => {
@@ -34,6 +48,16 @@ self.addEventListener("fetch", (event) => {
           return (await caches.match("/")) || Response.error();
         })
     );
+    return;
+  }
+
+  const isStaticAsset =
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname === "/manifest.webmanifest" ||
+    url.pathname === "/ohda-icon.svg";
+
+  if (!isStaticAsset) {
+    event.respondWith(fetch(request));
     return;
   }
 
