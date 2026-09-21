@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { getCurrentCenter } from "@/lib/current-center";
 import { getCenterInventoryBalances } from "@/lib/inventory-query";
 import { getAssignedCustodyTotalsAtLocation } from "@/lib/custody-query";
 
@@ -32,8 +33,8 @@ function defaultReference(date: Date) {
 }
 
 export async function createStocktakeAdjustments(formData: FormData) {
-  const center = await prisma.center.findUnique({ where: { code: "RAMTHA" } });
-  if (!center) throw new Error("مركز الرمثا غير موجود");
+  const center = await getCurrentCenter();
+  if (!center) throw new Error("لا يوجد مركز مفعّل");
 
   const locationId = text(formData, "locationId");
   if (!locationId) throw new Error("الموقع مطلوب");
@@ -41,7 +42,7 @@ export async function createStocktakeAdjustments(formData: FormData) {
   const location = await prisma.location.findFirst({
     where: { id: locationId, centerId: center.id, active: true },
   });
-  if (!location) throw new Error("الموقع المحدد غير صالح");
+  if (!location) throw new Error("الموقع المحدد غير صالح للمركز الحالي");
 
   const itemIds = allText(formData, "itemId");
   const actualValues = allText(formData, "actualQuantity");
