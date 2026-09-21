@@ -48,7 +48,11 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
     return (
       <div className="print-wrapper -mx-4 -my-6 bg-slate-100 p-4 md:-mx-6 md:-my-8 md:p-8">
         <style>{`
-          @page { size: A4 portrait; margin: 7mm 10mm 8mm; }
+          @page { size: A4 portrait; margin: 8mm 20mm; }
+          .official-table { border: 3px double #000; }
+          .official-table th { border: 3px double #000; }
+          .official-table td { border: 1px solid #000; }
+          .official-table tbody tr:last-child td { border-bottom: 3px double #000; }
           @media print {
             body { background: white !important; }
             header, aside { display: none !important; }
@@ -64,25 +68,26 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
         </div>
         <div className="space-y-5 print:space-y-0">
           {pages.map((lines, pageIndex) => (
-            <section key={pageIndex} className="custody-official mx-auto flex min-h-[282mm] w-[210mm] max-w-full flex-col bg-white px-[10mm] py-[7mm] text-[12px] text-black shadow-lg">
-              <div className="grid grid-cols-[115px_1fr_170px] items-start gap-3">
-                <div className="flex justify-start"><img src="/official-logo.svg" alt="شعار جمعية المركز الإسلامي الخيرية" className="h-[78px] w-auto" /></div>
-                <div className="pt-1 text-center font-bold">بسم الله الرحمن الرحيم</div>
-                <div className="text-right leading-6 font-bold">
+            <section key={pageIndex} className="custody-official mx-auto flex min-h-[282mm] w-[210mm] max-w-full flex-col bg-white px-[20mm] py-[8mm] text-[12px] text-black shadow-lg">
+              <div className="text-center text-[12pt] font-bold">بسم الله الرحمن الرحيم</div>
+              <div className="mt-1 grid grid-cols-[1fr_90px_1fr] items-end border-b-[3px] border-double border-black pb-2">
+                <div className="text-center text-[16pt] leading-7 font-bold">
                   <div>جمعية المركز الإسلامي الخيرية</div>
                   <div>الإدارة العامة – الدائرة المالية</div>
-                  <div>قسم اللوازم والمشتريات</div>
+                  <div className="text-[18pt]">قسم اللوازم والمشتريات</div>
                 </div>
+                <div></div>
+                <div className="flex justify-center"><img src="/official-logo.svg" alt="شعار جمعية المركز الإسلامي الخيرية" className="h-[62px] w-auto" /></div>
               </div>
 
-              <h1 className="mt-2 text-center text-[18px] font-bold">سند تسليم خاص بالعهدة الشخصية</h1>
-              <div className="mt-3 flex items-center justify-between text-[13px] font-bold">
+              <h1 className="mt-3 text-center text-[20pt] font-bold">سند تسليم خاص بالعهدة الشخصية</h1>
+              <div className="mt-3 flex items-center justify-between text-[14pt] font-bold">
                 <div>اسم المركز: <span className="font-normal">{centerName}</span></div>
                 <div>التاريخ: <span className="font-normal">{date}</span></div>
               </div>
-              <p className="mt-4 text-[13px] font-bold">تم تسليم المواد المذكورة أدناه للسيد: <span className="font-normal">{employeeName}</span></p>
+              <p className="mt-3 text-[14pt] font-bold">تم تسليم المواد المذكورة أدناه للسيد: <span className="font-normal">{employeeName}</span></p>
 
-              <table className="mt-2 w-full table-fixed border-collapse text-[11px]">
+              <table className="official-table mt-3 w-full table-fixed border-collapse text-[11pt]">
                 <thead>
                   <tr>
                     <th className="w-[23%] border border-black px-2 py-1.5">رقم المادة</th>
@@ -104,12 +109,12 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
                 </tbody>
               </table>
 
-              <div className="mt-6 mr-auto w-[47%] text-[13px] leading-8">
-                <div className="flex"><strong className="whitespace-nowrap">اسـم المستلـم:</strong><span className="mx-2 flex-1 border-b border-dotted border-black">{pageIndex === 0 ? employeeName : ""}</span></div>
+              <div className="mt-5 ml-auto w-[58%] text-[14pt] leading-7">
+                <div className="flex"><strong className="whitespace-nowrap">اسـم المستلـم:</strong><span className="mx-2 flex-1 border-b border-dotted border-black">""</span></div>
                 <div className="flex"><strong className="whitespace-nowrap">التـوقيـــع:</strong><span className="mx-2 flex-1 border-b border-dotted border-black">&nbsp;</span></div>
                 <div><strong>الرقم الوظيفي:</strong> ( <span className="inline-block min-w-28 text-center">{employeeNo}</span> )</div>
               </div>
-              <div className="mt-auto text-left text-[15px] font-bold" dir="ltr">FIN/3/3/4</div>
+              <div className="mt-2 text-left text-[14pt] font-bold" dir="ltr">FIN/3/3/4</div>
             </section>
           ))}
         </div>
