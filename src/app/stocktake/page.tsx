@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getCurrentCenter } from "@/lib/current-center";
 import { getCenterInventoryBalances } from "@/lib/inventory-query";
 import { StocktakeForm } from "./stocktake-form";
 
@@ -18,9 +19,9 @@ export default async function StocktakePage({
   searchParams: Promise<{ locationId?: string; matched?: string }>;
 }) {
   const params = await searchParams;
-  const center = await prisma.center.findUnique({ where: { code: "RAMTHA" } });
+  const center = await getCurrentCenter();
   if (!center) {
-    return <p className="rounded-xl border border-amber-200 bg-amber-50 p-4">يجب استيراد بيانات مركز الرمثا أولاً.</p>;
+    return <p className="rounded-xl border border-amber-200 bg-amber-50 p-4">لا يوجد مركز مفعّل بعد.</p>;
   }
 
   const locations = await prisma.location.findMany({
@@ -104,7 +105,7 @@ export default async function StocktakePage({
       {selectedLocation ? (
         <>
           <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-            الموقع الحالي: <strong>{selectedLocation.name}</strong> • عدد الأصناف التي لها رصيد مسجل: <strong>{expectedItems.length}</strong>
+            المركز: <strong>{center.name}</strong> • الموقع الحالي: <strong>{selectedLocation.name}</strong> • عدد الأصناف التي لها رصيد مسجل: <strong>{expectedItems.length}</strong>
           </section>
           <StocktakeForm
             locationId={selectedLocation.id}
