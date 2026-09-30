@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getCurrentCenter } from "@/lib/current-center";
 import { getCenterInventoryBalances } from "@/lib/inventory-query";
 
 function text(formData: FormData, key: string) {
@@ -15,8 +16,8 @@ function allText(formData: FormData, key: string) {
 }
 
 export async function createTransferDraft(formData: FormData) {
-  const center = await prisma.center.findUnique({ where: { code: "RAMTHA" } });
-  if (!center) throw new Error("مركز الرمثا غير موجود");
+  const center = await getCurrentCenter();
+  if (!center) throw new Error("لا يوجد مركز مفعّل");
 
   const fromLocationId = text(formData, "fromLocationId");
   const toLocationId = text(formData, "toLocationId");
@@ -27,7 +28,7 @@ export async function createTransferDraft(formData: FormData) {
     prisma.location.findFirst({ where: { id: fromLocationId, centerId: center.id, active: true } }),
     prisma.location.findFirst({ where: { id: toLocationId, centerId: center.id, active: true } }),
   ]);
-  if (!fromLocation || !toLocation) throw new Error("أحد المواقع غير صالح");
+  if (!fromLocation || !toLocation) throw new Error("أحد المواقع غير صالح للمركز الحالي");
 
   const itemIds = allText(formData, "itemId");
   const quantities = allText(formData, "quantity");
