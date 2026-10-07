@@ -4,6 +4,7 @@ node_modules/
 # Next.js
 .next/
 out/
+dist-desktop/
 
 # Environment files
 .env
@@ -21,6 +22,9 @@ prisma/dev.db-journal
 # Private source data / imports
 private-data/
 imports/private/
+desktop/runtime/
+desktop/app/
+desktop/server/
 *.xlsx
 *.xls
 *.csv
@@ -39,3 +43,4 @@ pnpm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+

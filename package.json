@@ -1,14 +1,19 @@
 {
   "name": "ohda-manager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
+  "author": "Smart Code Jo",
   "description": "نظام إدارة العهد واللوازم - مركز الرمثا",
   "scripts": {
     "dev": "next dev",
     "dev:lan": "next dev -H 0.0.0.0",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "start:lan": "next start -H 0.0.0.0",
+    "desktop:prepare": "node desktop/prepare.cjs",
+    "desktop:run": "npm run build && npm run desktop:prepare && electron .",
+    "desktop:build": "npm run build && npm run desktop:prepare && electron-builder --win nsis",
+    "desktop:dir": "npm run build && npm run desktop:prepare && electron-builder --win dir",
     "db:validate": "prisma validate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -31,6 +36,8 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12",
     "prisma": "^6.0.0",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.0.0",
@@ -38,5 +45,45 @@
   },
   "engines": {
     "node": ">=20.9.0"
+  },
+  "main": "desktop/main.cjs",
+  "build": {
+    "appId": "org.iccs.ohda",
+    "productName": "نظام إدارة العهد واللوازم",
+    "asar": false,
+    "directories": {
+      "app": "desktop/app",
+      "output": "dist-desktop",
+      "buildResources": "desktop"
+    },
+    "files": [
+      "**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "desktop/server",
+        "to": "server"
+      }
+    ],
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Ohda-Manager-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "إدارة العهد واللوازم"
+    }
   }
 }
+

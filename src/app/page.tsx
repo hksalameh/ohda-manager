@@ -18,6 +18,7 @@ function Stat({ title, value, note, primary = false }: { title: string; value: s
 export default async function HomePage() {
   const center = await getCurrentCenter();
   if (!center) return <section className="rounded-xl border border-amber-200 bg-amber-50 p-6">لا يوجد مركز مفعّل بعد.</section>;
+  const lanUrl = process.env.OHDA_LAN_URL?.trim();
 
   const [itemCount, locationCount, employeeCount, documentCount, draftCount, snapshot, batch, balances] = await Promise.all([
     prisma.item.count({ where: { active: true } }),
@@ -43,6 +44,16 @@ export default async function HomePage() {
           <span className="text-sm text-slate-500">الجرد الافتتاحي: {openingDate}</span>
         </div>
       </section>
+
+      {lanUrl ? (
+        <section className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-extrabold text-emerald-900">استخدام البرنامج من الهاتف</p>
+            <p className="mt-1 text-xs text-emerald-800">افتح هذا العنوان من الهاتف المتصل بنفس شبكة الكمبيوتر. البيانات نفسها مشتركة مباشرة.</p>
+          </div>
+          <div dir="ltr" className="select-all rounded-lg border border-emerald-300 bg-white px-4 py-2 font-mono text-sm font-bold text-emerald-900">{lanUrl}</div>
+        </section>
+      ) : null}
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Stat title="الرصيد الحالي" value={currentTotal} note="إجمالي القطع المتاحة حاليًا" primary />
@@ -85,3 +96,4 @@ export default async function HomePage() {
     </div>
   );
 }
+
