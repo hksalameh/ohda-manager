@@ -50,8 +50,9 @@ export default async function ItemsPage({
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">المواد</h2>
-          <p className="mt-2 text-sm text-slate-500">الرصيد الحالي محسوب من جميع حركات الإدخال والإخراج والنقل والعهدة، مع الاحتفاظ بأرقام الجرد القديم للمقارنة.</p>
+          <p className="text-xs font-bold text-blue-700">المركز الرئيسي للأصناف</p>
+          <h2 className="mt-1 text-2xl font-extrabold text-slate-900">مركز المواد</h2>
+          <p className="mt-2 text-sm text-slate-500">من هنا تصل إلى كل مادة ورصيدها الحالي وبطاقة الصنف وتفاصيل أماكن وجودها وحركتها.</p>
         </div>
         <Link href="/items/new" className="rounded-lg bg-blue-700 px-4 py-2.5 text-center text-sm font-bold text-white hover:bg-blue-800">+ مادة جديدة</Link>
       </div>
@@ -85,7 +86,7 @@ export default async function ItemsPage({
                 return (
                   <tr key={item.id} className="hover:bg-slate-50/70">
                     <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-700">{item.itemCode ?? "—"}</td>
-                    <td className="px-4 py-3 font-medium text-slate-900">{item.name}</td>
+                    <td className="px-4 py-3 font-medium text-slate-900"><Link href={`/items/${item.id}`} className="hover:text-blue-700 hover:underline">{item.name}</Link></td>
                     <td className="px-4 py-3 text-center">{opening?.bookBalance ?? "—"}</td>
                     <td className="px-4 py-3 text-center">{opening?.physicalQuantity ?? "—"}</td>
                     <td className="px-4 py-3 text-center text-base font-bold text-emerald-800">{current}</td>
@@ -94,7 +95,7 @@ export default async function ItemsPage({
                     <td className="px-4 py-3 text-left">
                       <div className="flex justify-end gap-2">
                         <Link href={`/reports/item-card?itemId=${encodeURIComponent(item.id)}`} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800 hover:bg-blue-100">بطاقة الصنف</Link>
-                        <Link href={`/items/${item.id}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold hover:bg-slate-50">كل تفاصيل المادة</Link>
+                        <Link href={`/items/${item.id}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold hover:bg-slate-50">فتح المادة</Link>
                       </div>
                     </td>
                   </tr>
