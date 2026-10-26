@@ -2,36 +2,42 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import CenterSwitcher from "@/components/center-switcher";
 import OfflineStatus from "@/components/offline-status";
-import InstallAppButton from "@/components/install-app-button";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "نظام إدارة العُهَد",
-  description: "نظام مركزي لإدارة العهد واللوازم لعدة مراكز",
+  description: "نظام إدارة العهد واللوازم",
   applicationName: "إدارة العهد",
   manifest: "/manifest.webmanifest",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 const operationLinks = [
   { href: "/", label: "الرئيسية" },
+  { href: "/stocktake", label: "جرد غرفة" },
+  { href: "/custody/new", label: "تسليم عهدة شخصية" },
+  { href: "/custody?mode=employees", label: "العهد الحالية" },
   { href: "/items", label: "المواد" },
-  { href: "/custody", label: "العُهد" },
-  { href: "/stocktake", label: "الجرد" },
-  { href: "/documents", label: "المستندات والسندات" },
   { href: "/reports", label: "التقارير" },
 ];
 
 const masterDataLinks = [
   { href: "/employees", label: "الموظفون" },
   { href: "/locations", label: "الغرف والمواقع" },
+  { href: "/documents", label: "كل السندات" },
 ];
 
 const mobileLinks = [
   { href: "/", label: "الرئيسية" },
+  { href: "/stocktake", label: "الجرد" },
+  { href: "/custody/new", label: "تسليم عهدة" },
+  { href: "/custody?mode=employees", label: "العهد" },
   { href: "/items", label: "المواد" },
-  { href: "/custody", label: "العُهد" },
-  { href: "/employees", label: "الموظفون" },
-  { href: "/locations", label: "الغرف" },
 ];
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -46,10 +52,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               </Link>
               <h1 className="mt-3 text-xl font-extrabold">إدارة العُهَد واللوازم</h1>
               <div className="mt-2 text-sm text-slate-300"><CenterSwitcher /></div>
-              <div className="mt-3"><InstallAppButton /></div>
             </div>
             <nav className="mt-5">
-              <p className="px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">التشغيل</p>
+              <p className="px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">المهام الرئيسية</p>
               <div className="mt-2 grid gap-1.5">
                 {operationLinks.map((link) => (
                   <Link key={link.href} href={link.href} className="rounded-lg border border-white/5 bg-white/5 px-4 py-2.5 text-right text-sm font-bold text-slate-100 transition hover:border-blue-400/40 hover:bg-blue-500/20">
@@ -57,11 +62,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                   </Link>
                 ))}
               </div>
-              <p className="mt-5 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">البيانات الأساسية</p>
+              <p className="mt-5 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">الإدارة والسجلات</p>
               <div className="mt-2 grid gap-1.5">
                 {masterDataLinks.map((link) => (
                   <Link key={link.href} href={link.href} className="rounded-lg border border-white/5 bg-white/5 px-4 py-2.5 text-right text-sm font-bold text-slate-100 transition hover:border-emerald-400/40 hover:bg-emerald-500/20">
-                  {link.label}
+                    {link.label}
                   </Link>
                 ))}
               </div>
@@ -74,10 +79,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <Link href="/" className="truncate font-extrabold text-slate-900">إدارة العُهَد</Link>
                 <CenterSwitcher />
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <InstallAppButton compact />
-                <Link href="/documents" className="rounded-lg bg-blue-700 px-3 py-2 text-sm font-bold text-white">السندات</Link>
-              </div>
+              <Link href="/custody/new" className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-bold text-white">تسليم عهدة</Link>
             </div>
           </header>
           <main className="min-h-screen min-w-0 max-w-full overflow-x-hidden p-4 pb-24 sm:p-5 sm:pb-24 lg:p-6 lg:pb-6 xl:p-8">{children}</main>

@@ -6,8 +6,16 @@ import { discardStockDraft, postStockDocument } from "../../[id]/actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function TransferReviewPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function TransferReviewPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string; message?: string }>;
+}) {
   const { id } = await params;
+  const query = await searchParams;
+  const actionError = query.error === "posting" ? query.message?.trim() : null;
   const document = await prisma.inventoryDocument.findUnique({
     where: { id },
     include: {
@@ -38,6 +46,13 @@ export default async function TransferReviewPage({ params }: { params: Promise<{
           {isDraft ? "مسودة" : document.status === DocumentStatus.POSTED ? "معتمد" : "ملغي"}
         </span>
       </div>
+
+      {actionError ? (
+        <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-7 text-red-900">
+          <strong>لم يتم اعتماد النقل، ولم يتغير الرصيد.</strong>
+          <div className="mt-1">{actionError}</div>
+        </section>
+      ) : null}
 
       {isDraft ? (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-950">

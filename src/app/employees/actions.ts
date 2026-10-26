@@ -173,13 +173,20 @@ export async function changeEmployeePrimaryLocation(formData: FormData) {
 
 export async function createCustodyDraftFromRoom(formData: FormData) {
   const employeeId = text(formData, "employeeId");
-  if (!employeeId) throw new Error("الموظف مطلوب");
+  const requestedReturnTo = text(formData, "returnTo");
+  const returnTo = requestedReturnTo.startsWith("/") ? requestedReturnTo : "/employees";
+  const fail = (message: string): never => {
+    const query = new URLSearchParams({ error: message });
+    redirect(`${returnTo}?${query.toString()}`);
+  };
+
+  if (!employeeId) fail("اختر الموظف أولاً");
 
   const center = await getCurrentCenter();
-  if (!center) throw new Error("لا يوجد مركز مفعّل");
+  if (!center) fail("لا يوجد مركز مفعّل");
 
   const employee = await prisma.employee.findFirst({
-    where: { id: employeeId, centerId: center.id },
+    where: { id: employeeId, centerId: center!.id },
     include: {
       center: true,
       locationAssignments: {
@@ -190,10 +197,10 @@ export async function createCustodyDraftFromRoom(formData: FormData) {
       },
     },
   });
-  if (!employee || !employee.active) throw new Error("الموظف غير موجود أو غير فعال في المركز الحالي");
+  if (!employee || !employee.active) fail("الموظف غير موجود أو غير فعال في المركز الحالي");
 
-  const assignment = employee.locationAssignments[0];
-  if (!assignment) throw new Error("يجب ربط الموظف بغرفة/موقع قبل إنشاء سند العهدة");
+  const assignment = employee!.locationAssignments[0];
+  if (!assignment) fail("يجب ربط الموظف بغرفة أو موقع قبل إنشاء سند العهدة");
   const locationId = assignment.locationId;
 
   const movements = await prisma.inventoryMovement.findMany({
@@ -234,7 +241,7 @@ export async function createCustodyDraftFromRoom(formData: FormData) {
     }))
     .filter((entry) => entry.quantity > 0);
 
-  if (available.length === 0) throw new Error("لا توجد مواد غير معهود بها في غرفة الموظف");
+  if (available.length === 0) fail("لا توجد مواد متاحة للتسليم في غرفة الموظف؛ المواد الموجودة إما معهود بها أو رصيدها صفر.");
 
   const items = await prisma.item.findMany({
     where: { id: { in: available.map((entry) => entry.itemId) } },
@@ -245,10 +252,10 @@ export async function createCustodyDraftFromRoom(formData: FormData) {
 
   const document = await prisma.inventoryDocument.create({
     data: {
-      centerId: employee.centerId,
+      centerId: employee!.centerId,
       documentType: "CUSTODY",
       documentDate: new Date(),
-      employeeId: employee.id,
+      employeeId: employee!.id,
       fromLocationId: locationId,
       toLocationId: locationId,
       templateVersionId: templateVersion.id,

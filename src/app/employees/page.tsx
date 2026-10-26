@@ -142,7 +142,7 @@ export default async function EmployeesPage() {
                           <Link href={`/employees/${employee.id}`} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-800 hover:bg-blue-100">فتح العهدة</Link>
                           <form action={createCustodyDraftFromRoom}>
                             <input type="hidden" name="employeeId" value={employee.id} />
-                            <button disabled={!currentLocation} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 enabled:hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">إنشاء سند</button>
+                            <button disabled={!currentLocation} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-white disabled:text-slate-300">تسليم عهدة</button>
                           </form>
                         </div>
                       </td>

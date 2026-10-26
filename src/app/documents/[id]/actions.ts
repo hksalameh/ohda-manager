@@ -18,6 +18,11 @@ function documentDetailPath(documentType: DocumentType, documentId: string) {
   return `/documents/${documentId}`;
 }
 
+function userMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) return error.message.trim();
+  return "تعذر إكمال العملية. راجع بيانات السند ثم حاول مرة أخرى.";
+}
+
 export async function saveCustodyDraft(formData: FormData) {
   const documentId = getText(formData, "documentId");
   if (!documentId) throw new Error("رقم المستند مفقود");
@@ -74,20 +79,30 @@ export async function postCustodyDocument(formData: FormData) {
   if (!document) throw new Error("المستند غير موجود");
   if (document.documentType !== DocumentType.CUSTODY) throw new Error("هذا المستند ليس سند عهدة");
 
-  if (!document.templateVersionId) {
-    const templateVersion = await ensureCustodyTemplate();
-    await prisma.inventoryDocument.update({
-      where: { id: documentId },
-      data: { templateVersionId: templateVersion.id },
-    });
+  let postingError: string | null = null;
+  try {
+    if (!document.templateVersionId) {
+      const templateVersion = await ensureCustodyTemplate();
+      await prisma.inventoryDocument.update({
+        where: { id: documentId },
+        data: { templateVersionId: templateVersion.id },
+      });
+    }
+    await postInventoryDocument(documentId);
+  } catch (error) {
+    postingError = userMessage(error);
   }
 
-  await postInventoryDocument(documentId);
+  if (postingError) {
+    const query = new URLSearchParams({ error: "posting", message: postingError });
+    redirect(`/documents/${documentId}?${query.toString()}`);
+  }
+
   revalidatePath(`/documents/${documentId}`);
   revalidatePath("/employees");
   revalidatePath("/locations");
   revalidatePath("/documents");
-  redirect(`/documents/${documentId}`);
+  redirect(`/documents/${documentId}/print`);
 }
 
 export async function discardCustodyDraft(formData: FormData) {
@@ -120,8 +135,19 @@ export async function postStockDocument(formData: FormData) {
     throw new Error("هذا النوع من المستندات لا يعتمد بهذه العملية");
   }
 
-  await postInventoryDocument(documentId);
   const detailPath = documentDetailPath(document.documentType, documentId);
+  let postingError: string | null = null;
+  try {
+    await postInventoryDocument(documentId);
+  } catch (error) {
+    postingError = userMessage(error);
+  }
+
+  if (postingError) {
+    const query = new URLSearchParams({ error: "posting", message: postingError });
+    redirect(`${detailPath}?${query.toString()}`);
+  }
+
   revalidatePath(detailPath);
   revalidatePath("/documents");
   revalidatePath("/items");

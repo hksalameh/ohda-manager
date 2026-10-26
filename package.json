@@ -1,6 +1,6 @@
 {
   "name": "ohda-manager",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "author": "Smart Code Jo",
   "description": "نظام إدارة العهد واللوازم - مركز الرمثا",
@@ -86,4 +86,3 @@
     }
   }
 }
-
