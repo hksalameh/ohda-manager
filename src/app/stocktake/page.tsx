@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentCenter } from "@/lib/current-center";
 import { getCenterInventoryBalances } from "@/lib/inventory-query";
+import { getAssignedCustodyTotalsAtLocation } from "@/lib/custody-query";
 import { StocktakeForm } from "./stocktake-form";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ function isoDate(date = new Date()) {
 export default async function StocktakePage({
   searchParams,
 }: {
-  searchParams: Promise<{ locationId?: string; matched?: string; error?: string }>;
+  searchParams: Promise<{ locationId?: string; matched?: string; error?: string; itemName?: string; actual?: string; assigned?: string }>;
 }) {
   const params = await searchParams;
   const center = await getCurrentCenter();
@@ -39,6 +40,7 @@ export default async function StocktakePage({
     name: string;
     unitName: string | null;
     systemQuantity: number;
+    assignedQuantity: number;
   }> = [];
   let allItems: Array<{ id: string; itemCode: string | null; name: string; unitName: string | null }> = [];
   let employees: Array<{
@@ -49,8 +51,9 @@ export default async function StocktakePage({
   }> = [];
 
   if (selectedLocation) {
-    const [balances, items, centerEmployees] = await Promise.all([
+    const [balances, assignedTotals, items, centerEmployees] = await Promise.all([
       getCenterInventoryBalances(center.id),
+      getAssignedCustodyTotalsAtLocation(selectedLocation.id),
       prisma.item.findMany({
         where: { active: true },
         include: { unit: true },
@@ -84,6 +87,7 @@ export default async function StocktakePage({
         name: item.name,
         unitName: item.unit?.name ?? null,
         systemQuantity: balances.itemLocationTotals.get(item.id)?.get(selectedLocation.id) ?? 0,
+        assignedQuantity: assignedTotals.get(item.id) ?? 0,
       }))
       .filter((item) => item.systemQuantity > 0);
 
@@ -123,6 +127,14 @@ export default async function StocktakePage({
 
       {params.error === "no_counts" && selectedLocation ? (
         <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-bold text-amber-950">أدخل كمية فعلية لمادة واحدة على الأقل، أو استخدم زر «اعتبار الظاهر مطابقًا» ثم احفظ الجرد.</section>
+      ) : null}
+
+      {params.error === "assigned_custody" && selectedLocation ? (
+        <section className="rounded-2xl border border-red-300 bg-red-50 p-4 text-sm leading-7 text-red-950">
+          <strong>لا يمكن اعتماد هذا النقص قبل معالجة العهدة.</strong>{" "}
+          المادة <strong>{params.itemName || "المحددة"}</strong> أُدخل لها فعلي <strong>{params.actual ?? "—"}</strong>، بينما يوجد <strong>{params.assigned ?? "—"}</strong> منها مسجل في عهدة موظف داخل {selectedLocation.name}.
+          <div className="mt-3"><Link href={`/custody?mode=rooms&locationId=${encodeURIComponent(selectedLocation.id)}`} className="inline-block rounded-lg bg-red-700 px-4 py-2 text-xs font-bold text-white">فتح عهد الغرفة ومعالجة القطعة أولاً</Link></div>
+        </section>
       ) : null}
 
       {params.matched === "1" && selectedLocation ? (

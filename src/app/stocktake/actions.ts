@@ -83,9 +83,14 @@ export async function createStocktakeAdjustments(formData: FormData) {
     const systemQuantity = balances.itemLocationTotals.get(row.itemId)?.get(locationId) ?? 0;
     const assignedQuantity = assignedTotals.get(row.itemId) ?? 0;
     if (actualQuantity < assignedQuantity) {
-      throw new Error(
-        `لا يمكن تخفيض ${item.name} إلى ${actualQuantity} لأن المسجل في عهد الموظفين داخل ${location.name} هو ${assignedQuantity}. يجب معالجة العهدة أولاً.`,
-      );
+      const query = new URLSearchParams({
+        locationId,
+        error: "assigned_custody",
+        itemName: item.name,
+        actual: String(actualQuantity),
+        assigned: String(assignedQuantity),
+      });
+      redirect(`/stocktake?${query.toString()}`);
     }
 
     countedRows.push({ itemId: row.itemId, actualQuantity, systemQuantity, assignedQuantity });

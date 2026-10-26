@@ -10,6 +10,7 @@ type ItemOption = {
   name: string;
   unitName: string | null;
   systemQuantity: number;
+  assignedQuantity: number;
 };
 
 type EmployeeOption = {
@@ -52,7 +53,7 @@ export function StocktakeForm({
   locationId: string;
   locationName: string;
   expectedItems: ItemOption[];
-  allItems: Omit<ItemOption, "systemQuantity">[];
+  allItems: Omit<ItemOption, "systemQuantity" | "assignedQuantity">[];
   employees: EmployeeOption[];
   today: string;
 }) {
@@ -294,19 +295,24 @@ export function StocktakeForm({
                         <h4 className="font-bold text-slate-900">{item.name}</h4>
                         {item.itemCode ? <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs text-slate-600">{item.itemCode}</span> : null}
                       </div>
-                      <p className="mt-1 text-sm text-slate-500">المسجل: <strong className="text-slate-900">{item.systemQuantity}</strong>{item.unitName ? ` ${item.unitName}` : ""}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        المسجل: <strong className="text-slate-900">{item.systemQuantity}</strong>{item.unitName ? ` ${item.unitName}` : ""}
+                        {item.assignedQuantity > 0 ? <> • منها في عهد الموظفين: <strong className="text-blue-800">{item.assignedQuantity}</strong></> : null}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button type="button" onClick={() => setCount(item.id, String(item.systemQuantity))} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">مطابق</button>
-                      {counts[item.id] === "0" ? (
+                      {item.assignedQuantity > 0 ? (
+                        <span className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-800">لا تُزال قبل إرجاع العهدة</span>
+                      ) : counts[item.id] === "0" ? (
                         <button type="button" onClick={() => setCount(item.id, "")} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">تراجع عن الإزالة</button>
                       ) : (
                         <button type="button" onClick={() => setCount(item.id, "0")} className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">إزالة من الغرفة</button>
                       )}
-                      <input name="actualQuantity" type="number" min={0} step={1} inputMode="numeric" value={counts[item.id] ?? ""} onChange={(event) => setCount(item.id, event.target.value)} className="w-24 rounded-lg border border-slate-300 px-2 py-2 text-center text-base font-bold" placeholder="الفعلي" />
+                      <input name="actualQuantity" type="number" min={item.assignedQuantity} step={1} inputMode="numeric" value={counts[item.id] ?? ""} onChange={(event) => setCount(item.id, event.target.value)} className="w-24 rounded-lg border border-slate-300 px-2 py-2 text-center text-base font-bold" placeholder="الفعلي" />
                     </div>
                   </div>
-                  {counts[item.id] === "0" ? <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">سيتم تسجيل هذه المادة كغير موجودة في الغرفة، ولن تُحذف من سجل النظام.</p> : null}
+                  {item.assignedQuantity > 0 ? <p className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-800">هذه المادة مرتبطة بعهدة موظف. أقل كمية يمكن اعتمادها في هذه الغرفة حالياً هي {item.assignedQuantity}. لمعالجة نقص أكبر، أرجع أو انقل العهدة أولاً.</p> : counts[item.id] === "0" ? <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">سيتم تسجيل هذه المادة كغير موجودة في الغرفة، ولن تُحذف من سجل النظام.</p> : null}
                 </div>
               );
             })}

@@ -1,6 +1,6 @@
 {
   "name": "ohda-manager",
-  "version": "0.1.1",
+  "version": "0.1.4",
   "private": true,
   "author": "Smart Code Jo",
   "description": "نظام إدارة العهد واللوازم - مركز الرمثا",
@@ -36,7 +36,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "electron": "^39.2.7",
+    "electron": "39.2.7",
     "electron-builder": "^26.0.12",
     "prisma": "^6.0.0",
     "tailwindcss": "^4.0.0",
