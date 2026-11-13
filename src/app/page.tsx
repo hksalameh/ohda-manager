@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import QRCode from "qrcode";
+import { authEnabled, isDesktopSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getCurrentCenter } from "@/lib/current-center";
 import { getCenterInventoryBalances } from "@/lib/inventory-query";
@@ -72,6 +75,12 @@ export default async function HomePage() {
 
   const currentTotal = [...balances.itemTotals.values()].reduce((sum, quantity) => sum + quantity, 0);
 
+  // بطاقة ربط الهاتف تظهر فقط داخل برنامج ويندوز على الكمبيوتر نفسه، لأنها تعرض رمز الدخول.
+  const lanUrl = process.env.OHDA_LAN_URL?.trim() ?? "";
+  const showPhoneAccess = Boolean(lanUrl) && isDesktopSession(await cookies());
+  const lanQrSvg = showPhoneAccess ? await QRCode.toString(lanUrl, { type: "svg", margin: 1 }) : "";
+  const accessPin = authEnabled() ? process.env.OHDA_PASSWORD?.trim() ?? "" : "";
+
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-slate-200 bg-white px-5 py-5 shadow-sm">
@@ -81,6 +90,24 @@ export default async function HomePage() {
           اختر المهمة مباشرة. لا تحتاج للدخول إلى قوائم المستندات أو معرفة اسم العملية داخل النظام.
         </p>
       </section>
+
+      {!authEnabled() ? (
+        <section className="rounded-2xl border border-red-300 bg-red-50 p-4 text-sm leading-7 text-red-950">
+          <strong>تنبيه أمني:</strong> النظام مفتوح لأي جهاز على نفس الشبكة دون رمز دخول. أضف <code className="rounded bg-white px-1">OHDA_PASSWORD</code> إلى ملف <code className="rounded bg-white px-1">.env</code> ثم أعد التشغيل.
+        </section>
+      ) : null}
+
+      {showPhoneAccess ? (
+        <section className="flex flex-col gap-4 rounded-2xl border border-blue-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center">
+          <div className="mx-auto w-36 shrink-0 [&>svg]:h-auto [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: lanQrSvg }} />
+          <div className="min-w-0">
+            <h3 className="text-lg font-extrabold text-slate-900">الجرد من الهاتف</h3>
+            <p className="mt-1 text-sm leading-7 text-slate-600">وصّل الهاتف بنفس شبكة الواي فاي، ثم امسح هذا الرمز بكاميرا الهاتف أو افتح العنوان:</p>
+            <p dir="ltr" className="mt-1 break-all text-right font-mono text-base font-bold text-blue-800">{lanUrl}</p>
+            {accessPin ? <p className="mt-2 text-sm text-slate-700">رمز الدخول: <strong dir="ltr" className="font-mono text-xl tracking-widest text-slate-900">{accessPin}</strong></p> : null}
+          </div>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 lg:grid-cols-2">
         <TaskCard

@@ -52,6 +52,7 @@ export default async function LocationsPage() {
           <p className="mt-2 text-sm text-slate-500">جدول واحد لتعديل اسم الغرفة ورمزها ونوعها ومراجعة عدد الموظفين والقطع الموجودة فيها.</p>
         </div>
         <Link href="/items" className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-center text-sm font-bold text-blue-800 hover:bg-blue-100">فتح مركز المواد</Link>
+        <Link href="/labels?type=locations" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-center text-sm font-bold text-emerald-800 hover:bg-emerald-100">ملصقات QR للغرف</Link>
       </div>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
