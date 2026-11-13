@@ -78,7 +78,10 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
           <p className="font-mono text-sm text-slate-500">{item.itemCode ?? "بدون رقم مادة"}</p>
           <h2 className="mt-1 text-2xl font-bold text-slate-900">{item.name}</h2>
         </div>
-        <Link href="/items" className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">العودة للمواد</Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/labels?type=items&itemId=${encodeURIComponent(item.id)}`} className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-800 hover:bg-blue-100">ملصق QR</Link>
+          <Link href="/items" className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">العودة للمواد</Link>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

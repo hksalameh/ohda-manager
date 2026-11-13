@@ -1,0 +1,11 @@
+name = "ohda"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+# أنشئ الـ namespace بالأمر: npx wrangler kv namespace create OHDA ثم ضع الـ id هنا.
+[[kv_namespaces]]
+binding = "OHDA"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# السر يُضاف بالأمر: npx wrangler secret put UPDATE_SECRET

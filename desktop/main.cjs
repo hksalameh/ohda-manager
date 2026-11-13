@@ -1,4 +1,5 @@
 const { app, BrowserWindow, dialog, shell } = require("electron");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const http = require("node:http");
 const net = require("node:net");
@@ -12,6 +13,28 @@ app.setPath("userData", path.join(appDataRoot, "OhdaManager"));
 let mainWindow = null;
 let serverProcess = null;
 let quitting = false;
+
+// رمز عشوائي لكل تشغيل يسمح لنافذة البرنامج على هذا الكمبيوتر بالدخول دون كلمة مرور.
+const desktopToken = crypto.randomBytes(32).toString("hex");
+
+// رمز دخول الهاتف: يُنشأ مرة واحدة ويُحفظ في ohda-config.json داخل مجلد بيانات البرنامج.
+// يمكن تغييره بتعديل الملف ثم إعادة تشغيل البرنامج.
+function loadAccessPassword() {
+  if (process.env.OHDA_PASSWORD?.trim()) return process.env.OHDA_PASSWORD.trim();
+  const configPath = path.join(app.getPath("userData"), "ohda-config.json");
+  let config = {};
+  try {
+    config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  } catch {
+    config = {};
+  }
+  if (typeof config.password !== "string" || !config.password.trim()) {
+    config.password = String(crypto.randomInt(100000, 1000000));
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+  }
+  return config.password.trim();
+}
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -158,6 +181,8 @@ function openServerProcess(port, databasePath, lanUrl) {
       DATABASE_URL: `file:${normalizeSqlitePath(databasePath)}`,
       DEFAULT_CENTER_CODE: process.env.DEFAULT_CENTER_CODE || "RAMTHA",
       OHDA_DESKTOP: "1",
+      OHDA_PASSWORD: loadAccessPassword(),
+      OHDA_DESKTOP_TOKEN: desktopToken,
       OHDA_LAN_URL: lanUrl || "",
       NODE_PATH: [serverModules, process.env.NODE_PATH].filter(Boolean).join(path.delimiter),
     },
@@ -178,7 +203,7 @@ function openServerProcess(port, databasePath, lanUrl) {
   });
 }
 
-function createWindow(port) {
+async function createWindow(port) {
   mainWindow = new BrowserWindow({
     width: 1380,
     height: 900,
@@ -208,6 +233,13 @@ function createWindow(port) {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+  await mainWindow.webContents.session.cookies.set({
+    url: `http://127.0.0.1:${port}`,
+    name: "ohda_desktop",
+    value: desktopToken,
+    httpOnly: true,
+    sameSite: "lax",
+  });
   mainWindow.loadURL(`http://127.0.0.1:${port}`);
 }
 
@@ -220,7 +252,7 @@ async function startApplication() {
 
     openServerProcess(port, databasePath, lanUrl);
     await waitForServer(port);
-    createWindow(port);
+    await createWindow(port);
   } catch (error) {
     dialog.showErrorBox(
       "تعذر تشغيل برنامج العهد",

@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import CenterSwitcher from "@/components/center-switcher";
 import OfflineStatus from "@/components/offline-status";
+import { authEnabled } from "@/lib/auth";
+import { logout } from "@/app/login/actions";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -30,6 +32,7 @@ const masterDataLinks = [
   { href: "/employees", label: "الموظفون" },
   { href: "/locations", label: "الغرف والمواقع" },
   { href: "/documents", label: "كل السندات" },
+  { href: "/labels", label: "ملصقات QR" },
 ];
 
 const mobileLinks = [
@@ -71,6 +74,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 ))}
               </div>
             </nav>
+            {authEnabled() ? (
+              <form action={logout} className="mt-5">
+                <button className="w-full rounded-lg border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-white/10">تسجيل الخروج</button>
+              </form>
+            ) : null}
             <div className="mt-auto border-t border-white/10 pt-4 text-center text-xs leading-6 text-slate-500">جمعية المركز الإسلامي الخيرية<br />قسم اللوازم والمشتريات</div>
           </aside>
           <header className="no-print sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm lg:hidden">

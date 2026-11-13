@@ -1,7 +1,9 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { loadOfflineDraft, saveOfflineDraft } from "@/lib/offline-drafts";
+import { deleteOfflineDraft, loadOfflineDraft, saveOfflineDraft } from "@/lib/offline-drafts";
+import { QrScanner } from "@/components/qr-scanner";
+import { parseQr } from "@/lib/qr-codes";
 import { createStocktakeAdjustments } from "./actions";
 
 type ItemOption = {
@@ -49,6 +51,7 @@ export function StocktakeForm({
   allItems,
   employees,
   today,
+  discardSavedDraft = false,
 }: {
   locationId: string;
   locationName: string;
@@ -56,6 +59,7 @@ export function StocktakeForm({
   allItems: Omit<ItemOption, "systemQuantity" | "assignedQuantity">[];
   employees: EmployeeOption[];
   today: string;
+  discardSavedDraft?: boolean;
 }) {
   const draftKey = `stocktake:${locationId}`;
   const [query, setQuery] = useState("");
@@ -72,6 +76,8 @@ export function StocktakeForm({
   const [draftReady, setDraftReady] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [offlineMessage, setOfflineMessage] = useState<string | null>(null);
+  const [scanFeedback, setScanFeedback] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const expectedIds = useMemo(() => new Set(expectedItems.map((item) => item.id)), [expectedItems]);
   const selectedExtraIds = useMemo(() => new Set(extras.map((line) => line.itemId).filter(Boolean)), [extras]);
@@ -107,6 +113,16 @@ export function StocktakeForm({
 
   useEffect(() => {
     let active = true;
+    if (discardSavedDraft) {
+      deleteOfflineDraft(draftKey)
+        .catch(() => undefined)
+        .finally(() => {
+          if (active) setDraftReady(true);
+        });
+      return () => {
+        active = false;
+      };
+    }
     loadOfflineDraft<StocktakeOfflineDraft>(draftKey)
       .then((record) => {
         if (!active || !record) return;
@@ -129,10 +145,11 @@ export function StocktakeForm({
     return () => {
       active = false;
     };
-  }, [draftKey, today]);
+  }, [discardSavedDraft, draftKey, today]);
 
   useEffect(() => {
-    if (!draftReady || online) return;
+    // حفظ تلقائي دائم: لو أُغلقت الصفحة أو انطفأت شاشة الهاتف لا يضيع الجرد.
+    if (!draftReady) return;
     const draft: StocktakeOfflineDraft = {
       counts,
       extras,
@@ -146,7 +163,67 @@ export function StocktakeForm({
       saveOfflineDraft(draftKey, draft).catch(() => undefined);
     }, 150);
     return () => window.clearTimeout(timer);
-  }, [counts, countDate, draftKey, draftReady, extras, notes, online, referenceNo, responsibleEmployeeId, responsibleName]);
+  }, [counts, countDate, draftKey, draftReady, extras, notes, referenceNo, responsibleEmployeeId, responsibleName]);
+
+  async function discardDraft() {
+    if (!window.confirm("سيتم مسح كل ما أدخلته في هذا الجرد. هل أنت متأكد؟")) return;
+    setCounts({});
+    setExtras([]);
+    setResponsibleEmployeeId("");
+    setResponsibleName("");
+    setCountDate(today);
+    setReferenceNo("");
+    setNotes("");
+    setDraftRestored(false);
+    setOfflineMessage(null);
+    setScanFeedback(null);
+    await deleteOfflineDraft(draftKey).catch(() => undefined);
+  }
+
+  function handleScan(raw: string) {
+    const parsed = parseQr(raw);
+    if (parsed.kind === "location") {
+      setScanFeedback(
+        parsed.id === locationId
+          ? { tone: "ok", text: `أنت داخل ${locationName}. امسح الآن ملصقات المواد.` }
+          : { tone: "error", text: "هذا ملصق غرفة أخرى. أنهِ جرد هذه الغرفة أو افتح الغرفة الأخرى من أعلى الصفحة." },
+      );
+      return;
+    }
+
+    const item =
+      parsed.kind === "item"
+        ? allItems.find((entry) => entry.id === parsed.id)
+        : allItems.find((entry) => entry.itemCode && entry.itemCode.toLowerCase() === parsed.value.toLowerCase());
+
+    if (!item) {
+      setScanFeedback({ tone: "error", text: "الرمز لا يطابق أي مادة مسجلة في النظام." });
+      return;
+    }
+
+    if (expectedIds.has(item.id)) {
+      const nextValue = (Number(counts[item.id]) || 0) + 1;
+      setCounts((current) => ({ ...current, [item.id]: String((Number(current[item.id]) || 0) + 1) }));
+      const expected = expectedItems.find((entry) => entry.id === item.id);
+      setQuery("");
+      setHighlightId(item.id);
+      window.setTimeout(() => document.getElementById(`stocktake-item-${item.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+      setScanFeedback({ tone: "ok", text: `✔ ${item.name}: ${nextValue} من ${expected?.systemQuantity ?? "؟"} مسجلة` });
+      return;
+    }
+
+    const existing = extras.find((line) => line.itemId === item.id);
+    if (existing) {
+      const nextValue = (Number(existing.actualQuantity) || 0) + 1;
+      setExtras((current) => current.map((line) => line.itemId === item.id ? { ...line, actualQuantity: String(nextValue) } : line));
+      setScanFeedback({ tone: "ok", text: `＋ ${item.name}: ${nextValue} (غير مسجلة في هذه الغرفة)` });
+    } else {
+      setExtras((current) => [...current, { key: nextKey, itemId: item.id, actualQuantity: "1" }]);
+      setNextKey((value) => value + 1);
+      setScanFeedback({ tone: "ok", text: `＋ ${item.name}: أضيفت كمادة جديدة في الغرفة (1)` });
+    }
+    setHighlightId(item.id);
+  }
 
   function setCount(itemId: string, value: string) {
     setCounts((current) => ({ ...current, [itemId]: value }));
@@ -195,6 +272,9 @@ export function StocktakeForm({
         <section className={`rounded-2xl border p-4 text-sm leading-7 ${online ? "border-blue-200 bg-blue-50 text-blue-950" : "border-amber-300 bg-amber-50 text-amber-950"}`}>
           <strong>{online ? "حالة المسودة: " : "وضع دون إنترنت: "}</strong>
           {offlineMessage ?? (draftRestored ? "تم العثور على جرد محفوظ محلياً لهذه الغرفة واستعادته." : "كل ما تدخله سيُحفظ على هذا الجهاز حتى يعود الاتصال.")}
+          {draftRestored ? (
+            <button type="button" onClick={discardDraft} className="mr-2 rounded-lg border border-red-300 bg-white px-3 py-1 text-xs font-bold text-red-700">مسح المسودة والبدء من جديد</button>
+          ) : null}
         </section>
       ) : null}
 
@@ -243,6 +323,19 @@ export function StocktakeForm({
         </div>
       </section>
 
+      <section className="sticky top-16 z-20 rounded-2xl border border-blue-300 bg-white/95 p-4 shadow-md backdrop-blur lg:top-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="font-extrabold text-slate-900">الجرد بالمسح</h3>
+            <p className="text-xs leading-6 text-slate-600">كل مسح لملصق مادة يضيف قطعة واحدة إلى الكمية الفعلية.</p>
+          </div>
+          <QrScanner label="مسح ملصقات المواد" onResult={handleScan} continuous className="rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800" />
+        </div>
+        {scanFeedback ? (
+          <p className={`mt-3 rounded-lg px-3 py-2 text-sm font-bold ${scanFeedback.tone === "ok" ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>{scanFeedback.text}</p>
+        ) : null}
+      </section>
+
       <section className="rounded-2xl border border-blue-200 bg-white shadow-sm">
         <div className="border-b border-blue-100 p-4">
           <h3 className="text-lg font-bold text-slate-900">إدارة مواد الغرفة</h3>
@@ -287,7 +380,7 @@ export function StocktakeForm({
             {expectedItems.map((item) => {
               const visible = matches(item, query);
               return (
-                <div key={item.id} className={visible ? "p-4" : "hidden"}>
+                <div key={item.id} id={`stocktake-item-${item.id}`} className={visible ? `p-4 transition-colors ${highlightId === item.id ? "bg-emerald-50" : ""}` : "hidden"}>
                   <input type="hidden" name="itemId" value={item.id} />
                   <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
                     <div>

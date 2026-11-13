@@ -4,6 +4,7 @@ import { getCurrentCenter } from "@/lib/current-center";
 import { getCenterInventoryBalances } from "@/lib/inventory-query";
 import { getAssignedCustodyTotalsAtLocation } from "@/lib/custody-query";
 import { StocktakeForm } from "./stocktake-form";
+import { RoomScan } from "./room-scan";
 
 export const dynamic = "force-dynamic";
 
@@ -123,6 +124,10 @@ export default async function StocktakePage({
           </label>
           <button type="submit" className="rounded-lg bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800">فتح الغرفة وبدء الجرد</button>
         </form>
+        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+          <p className="text-xs leading-6 text-slate-500">من الهاتف: امسح ملصق QR الموجود على باب الغرفة لفتحها مباشرة.</p>
+          <RoomScan locations={locations.map((location) => ({ id: location.id, name: location.name, code: location.code }))} />
+        </div>
       </section>
 
       {params.error === "no_counts" && selectedLocation ? (
@@ -155,6 +160,7 @@ export default async function StocktakePage({
             allItems={allItems}
             employees={employees}
             today={isoDate()}
+            discardSavedDraft={params.matched === "1"}
           />
         </>
       ) : (

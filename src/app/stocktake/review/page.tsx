@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import OfflineDraftCleaner from "@/components/offline-draft-cleaner";
 
 export const dynamic = "force-dynamic";
 
 export default async function StocktakeReviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ids?: string; custodyId?: string; matched?: string }>;
+  searchParams: Promise<{ ids?: string; custodyId?: string; matched?: string; locationId?: string }>;
 }) {
   const params = await searchParams;
   const ids = (params.ids ?? "").split(",").map((id) => id.trim()).filter(Boolean);
@@ -40,6 +41,7 @@ export default async function StocktakeReviewPage({
 
   return (
     <div className="space-y-6">
+      {params.locationId ? <OfflineDraftCleaner draftKey={`stocktake:${params.locationId}`} /> : null}
       <div>
         <p className="text-sm text-slate-500">الجرد / نتيجة الغرفة</p>
         <h2 className="mt-1 text-2xl font-bold text-slate-900">تم حفظ نتيجة الجرد</h2>

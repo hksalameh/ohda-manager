@@ -273,6 +273,7 @@ export async function createStocktakeAdjustments(formData: FormData) {
   }
 
   const query = new URLSearchParams();
+  query.set("locationId", locationId);
   if (result.adjustmentIds.length) query.set("ids", result.adjustmentIds.join(","));
   if (result.custodyId) query.set("custodyId", result.custodyId);
   if (result.adjustmentIds.length === 0) query.set("matched", "1");
