@@ -97,11 +97,53 @@ switch ($Mode) {
       throw "لا يوجد رمز دخول للنظام (OHDA_PASSWORD). الرابط سيكون عاماً على الإنترنت، فلا تشغّله بدون رمز."
     }
     $appPort = Find-AppPort
+    $logFile = Join-Path $env:TEMP "ohda-cloudflared.log"
+    Remove-Item $logFile -ErrorAction SilentlyContinue
+
     Write-Host ""
     Write-Host "جاري فتح نفق مؤقت إلى http://localhost:$appPort ..." -ForegroundColor Cyan
-    Write-Host "انتظر ظهور رابط ينتهي بـ trycloudflare.com وافتحه من الهاتف." -ForegroundColor Cyan
-    Write-Host "الرابط يتغير في كل تشغيل. اترك هذه النافذة مفتوحة، وللإيقاف اضغط Ctrl+C." -ForegroundColor Cyan
-    Write-Host ""
-    & $cloudflared tunnel --no-autoupdate --url "http://localhost:$appPort"
+    $process = Start-Process -FilePath $cloudflared `
+      -ArgumentList @("tunnel", "--no-autoupdate", "--url", "http://localhost:$appPort") `
+      -RedirectStandardError $logFile -NoNewWindow -PassThru
+
+    try {
+      $tunnelUrl = $null
+      for ($attempt = 0; $attempt -lt 60 -and -not $process.HasExited; $attempt++) {
+        Start-Sleep -Seconds 1
+        if (Test-Path $logFile) {
+          $match = Select-String -Path $logFile -Pattern 'https://[a-z0-9-]+\.trycloudflare\.com' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($match) { $tunnelUrl = $match.Matches[0].Value; break }
+        }
+      }
+      if (-not $tunnelUrl) {
+        if (Test-Path $logFile) { Get-Content $logFile -Tail 20 }
+        throw "تعذر فتح النفق. تأكد من اتصال الإنترنت وأعد المحاولة."
+      }
+
+      Write-Host ""
+      Write-Host "الرابط المؤقت: $tunnelUrl" -ForegroundColor Green
+
+      # تحديث الرابط الثابت على workers.dev إن كان مُعداً (انظر cloudflare/redirect-worker).
+      $redirectConfig = Join-Path $env:APPDATA "OhdaManager\ohda-tunnel.json"
+      if (Test-Path $redirectConfig) {
+        try {
+          $config = Get-Content $redirectConfig -Raw -Encoding UTF8 | ConvertFrom-Json
+          $body = @{ target = $tunnelUrl } | ConvertTo-Json -Compress
+          Invoke-RestMethod -Method Post -Uri ($config.workerUrl.TrimEnd("/") + "/__set") `
+            -Headers @{ Authorization = "Bearer $($config.secret)" } `
+            -ContentType "application/json" -Body $body | Out-Null
+          Write-Host "الرابط الثابت للهاتف: $($config.workerUrl)" -ForegroundColor Green
+        } catch {
+          Write-Host "تعذر تحديث الرابط الثابت: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+      }
+
+      Write-Host ""
+      Write-Host "اترك هذه النافذة مفتوحة. للإيقاف اضغط Ctrl+C أو أغلق النافذة." -ForegroundColor Cyan
+      Wait-Process -Id $process.Id
+    }
+    finally {
+      if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+    }
   }
 }

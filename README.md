@@ -135,6 +135,19 @@ powershell -ExecutionPolicy Bypass -File .\scripts\cloudflare-tunnel.ps1
 
 يثبّت السكربت `cloudflared` عبر winget إن لم يكن موجوداً، ثم يظهر رابط مثل `https://xxxx.trycloudflare.com`. الرابط يتغير في كل تشغيل ويتوقف عند إغلاق النافذة.
 
+### رابط ثابت مجاني بدون دومين (workers.dev)
+
+رابط النفق المؤقت يتغير كل تشغيل، لكن يمكن جعل الهاتف يفتح دائماً نفس الرابط `https://ohda.<حسابك>.workers.dev` الذي يحوّله للرابط الحالي:
+
+1. انشر `cloudflare/redirect-worker` على حساب Cloudflare المجاني (Worker باسم `ohda` + KV مربوط باسم `OHDA` + Secret باسم `UPDATE_SECRET`).
+2. على كمبيوتر العهدة أنشئ الملف `%APPDATA%\OhdaManager\ohda-tunnel.json`:
+
+```json
+{ "workerUrl": "https://ohda.<حسابك>.workers.dev", "secret": "<نفس UPDATE_SECRET>" }
+```
+
+3. عند تشغيل `cloudflare-ohda.cmd` يُرسل الرابط الجديد تلقائياً، وعلى الهاتف تفتح الرابط الثابت دائماً. عند تغيّر النفق قد يُطلب رمز الدخول مرة أخرى.
+
 ### رابط ثابت يعمل دائماً (يحتاج دوماناً مضافاً على Cloudflare)
 
 1. في لوحة Cloudflare: Zero Trust ← Networks ← Tunnels ← Create a tunnel (Cloudflared)، وانسخ الـ Token.
