@@ -119,6 +119,35 @@ http://192.168.1.50:3000
 
 ملاحظة: المتصفح يسمح بالكاميرا المباشرة فقط على HTTPS أو localhost. على عنوان الشبكة `http://192.168.x.x` يعمل المسح بالتقاط صورة للملصق. لتفعيل الكاميرا المباشرة في Chrome على أندرويد يمكن إضافة عنوان الكمبيوتر في `chrome://flags/#unsafely-treat-insecure-origin-as-secure`.
 
+## الدخول من الهاتف من أي مكان (Cloudflare Tunnel)
+
+بدون VPN على الهاتف وبدون فتح منافذ على الراوتر. الكمبيوتر يجب أن يكون شغالاً والبرنامج مفتوحاً، والبيانات تبقى عليه. الرابط HTTPS، لذلك تعمل كاميرا المسح المباشر على الهاتف.
+
+**شرط:** يجب ضبط رمز الدخول (`OHDA_PASSWORD` أو رمز برنامج ويندوز)، والسكربت يرفض العمل بدونه.
+
+### تجربة سريعة (بدون حساب ولا دومين)
+
+شغّل `cloudflare-ohda.cmd`، أو:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\cloudflare-tunnel.ps1
+```
+
+يثبّت السكربت `cloudflared` عبر winget إن لم يكن موجوداً، ثم يظهر رابط مثل `https://xxxx.trycloudflare.com`. الرابط يتغير في كل تشغيل ويتوقف عند إغلاق النافذة.
+
+### رابط ثابت يعمل دائماً (يحتاج دوماناً مضافاً على Cloudflare)
+
+1. في لوحة Cloudflare: Zero Trust ← Networks ← Tunnels ← Create a tunnel (Cloudflared)، وانسخ الـ Token.
+2. أضف Public Hostname مثل `ohda.example.com` يشير إلى `http://localhost:3000`.
+3. يُنصح بإضافة Access Application على نفس العنوان مع سياسة One-time PIN على إيميلات محددة (مجاني حتى 50 مستخدماً)، فلا يصل أحد لصفحة النظام قبل تأكيد إيميله.
+4. على كمبيوتر العهدة، من PowerShell كمسؤول:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\cloudflare-tunnel.ps1 -Mode Install -Token "<TOKEN>"
+```
+
+يعمل النفق بعدها كخدمة ويندوز مع كل تشغيل. للإزالة: `-Mode Uninstall`.
+
 ## النسخ الاحتياطي
 
 يمكن الضغط على:
