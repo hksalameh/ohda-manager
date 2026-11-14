@@ -1,6 +1,7 @@
 "use client";
 
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { deleteOfflineDraft, loadOfflineDraft, saveOfflineDraft } from "@/lib/offline-drafts";
 import { QrScanner } from "@/components/qr-scanner";
 import { parseQr } from "@/lib/qr-codes";
@@ -52,6 +53,7 @@ export function StocktakeForm({
   employees,
   today,
   discardSavedDraft = false,
+  createdItemId = "",
 }: {
   locationId: string;
   locationName: string;
@@ -60,8 +62,10 @@ export function StocktakeForm({
   employees: EmployeeOption[];
   today: string;
   discardSavedDraft?: boolean;
+  createdItemId?: string;
 }) {
   const draftKey = `stocktake:${locationId}`;
+  const createdItemHandled = useRef(false);
   const [query, setQuery] = useState("");
   const [extraSearch, setExtraSearch] = useState("");
   const [counts, setCounts] = useState<Record<string, string>>({});
@@ -164,6 +168,20 @@ export function StocktakeForm({
     }, 150);
     return () => window.clearTimeout(timer);
   }, [counts, countDate, draftKey, draftReady, extras, notes, referenceNo, responsibleEmployeeId, responsibleName]);
+
+  useEffect(() => {
+    if (!draftReady || !createdItemId || createdItemHandled.current) return;
+    createdItemHandled.current = true;
+    const item = allItems.find((entry) => entry.id === createdItemId);
+    if (!item || expectedIds.has(item.id)) return;
+    setExtras((current) => {
+      if (current.some((line) => line.itemId === item.id)) return current;
+      const key = Math.max(1, ...current.map((line) => line.key)) + 1;
+      return [...current, { key, itemId: item.id, actualQuantity: "1" }];
+    });
+    setNextKey((value) => value + 1);
+    setExtraSearch(item.name);
+  }, [allItems, createdItemId, draftReady, expectedIds]);
 
   async function discardDraft() {
     if (!window.confirm("سيتم مسح كل ما أدخلته في هذا الجرد. هل أنت متأكد؟")) return;
@@ -336,10 +354,11 @@ export function StocktakeForm({
         ) : null}
       </section>
 
-      <section className="rounded-2xl border border-blue-200 bg-white shadow-sm">
+      <section id="add-room-items" className="scroll-mt-20 rounded-2xl border border-blue-200 bg-white shadow-sm">
         <div className="border-b border-blue-100 p-4">
           <h3 className="text-lg font-bold text-slate-900">إدارة مواد الغرفة</h3>
           <p className="mt-1 text-sm leading-7 text-slate-600">ابحث في جميع مواد النظام. يمكنك إضافة مادة غير موجودة في الغرفة، أما إزالة مادة مسجلة فتتم من قائمتها أدناه حتى تبقى الحركة محفوظة في السجل.</p>
+          <Link href={`/items/new?stocktakeLocationId=${encodeURIComponent(locationId)}`} className="mt-3 inline-block rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-800">+ إنشاء مادة جديدة غير موجودة في الدليل</Link>
           <input value={extraSearch} onChange={(event) => setExtraSearch(event.target.value)} placeholder="ابحث في جميع المواد بالاسم أو رقم المادة" className="mt-3 w-full rounded-xl border border-slate-300 px-4 py-3 text-base" />
         </div>
         {extraSearch.trim() ? (

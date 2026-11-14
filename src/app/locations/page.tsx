@@ -49,7 +49,7 @@ export default async function LocationsPage() {
         <div>
           <p className="text-xs font-bold text-blue-700">البيانات الأساسية</p>
           <h2 className="mt-1 text-2xl font-extrabold text-slate-900">الغرف والمواقع</h2>
-          <p className="mt-2 text-sm text-slate-500">جدول واحد لتعديل اسم الغرفة ورمزها ونوعها ومراجعة عدد الموظفين والقطع الموجودة فيها.</p>
+          <p className="mt-2 text-sm text-slate-500">افتح أي غرفة لعرض محتوياتها وجردها وإضافة مواد أو نقلها إلى غرفة أخرى. يمكن تعديل بيانات الغرفة من الجدول.</p>
         </div>
         <Link href="/items" className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-center text-sm font-bold text-blue-800 hover:bg-blue-100">فتح مركز المواد</Link>
         <Link href="/labels?type=locations" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-center text-sm font-bold text-emerald-800 hover:bg-emerald-100">ملصقات QR للغرف</Link>
@@ -111,7 +111,10 @@ export default async function LocationsPage() {
                     <td className="px-3 py-3 text-center font-bold text-slate-700">{employeeCounts.get(location.id) ?? 0}</td>
                     <td className="px-3 py-3 text-center text-base font-extrabold text-emerald-800">{balances.locationTotals.get(location.id) ?? 0}</td>
                     <td className="px-3 py-3 text-center">
-                      <button form={formId} className="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-800">حفظ</button>
+                      <div className="flex flex-col gap-2">
+                        <Link href={`/locations/${location.id}`} className="rounded-lg bg-blue-700 px-4 py-2 text-xs font-bold text-white hover:bg-blue-800">فتح الغرفة</Link>
+                        <button form={formId} className="rounded-lg border border-emerald-600 px-4 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50">حفظ التعديل</button>
+                      </div>
                     </td>
                   </tr>
                 );

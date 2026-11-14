@@ -18,7 +18,7 @@ function isoDate(date = new Date()) {
 export default async function StocktakePage({
   searchParams,
 }: {
-  searchParams: Promise<{ locationId?: string; matched?: string; error?: string; itemName?: string; actual?: string; assigned?: string }>;
+  searchParams: Promise<{ locationId?: string; matched?: string; error?: string; itemName?: string; actual?: string; assigned?: string; newItemId?: string }>;
 }) {
   const params = await searchParams;
   const center = await getCurrentCenter();
@@ -161,6 +161,7 @@ export default async function StocktakePage({
             employees={employees}
             today={isoDate()}
             discardSavedDraft={params.matched === "1"}
+            createdItemId={params.newItemId ?? ""}
           />
         </>
       ) : (
