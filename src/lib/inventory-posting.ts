@@ -258,6 +258,31 @@ export async function postInventoryDocument(documentId: string) {
       }
     }
 
+    // Never move, issue, or write off physical items that are still entrusted
+    // to employees. Aggregate repeated lines before enforcing this guard.
+    const unassignedNeeds = new Map<string, { itemId: string; locationId: string; quantity: number }>();
+    for (const movement of planned) {
+      if (!movement.fromLocationId || ![
+        MovementType.TRANSFER,
+        MovementType.ISSUE,
+        MovementType.ADJUST_OUT,
+      ].includes(movement.movementType)) continue;
+      const key = `${movement.itemId}:${movement.fromLocationId}`;
+      const previous = unassignedNeeds.get(key);
+      unassignedNeeds.set(key, {
+        itemId: movement.itemId,
+        locationId: movement.fromLocationId,
+        quantity: (previous?.quantity ?? 0) + movement.quantity,
+      });
+    }
+    for (const need of unassignedNeeds.values()) {
+      const physical = await locationBalance(tx, need.itemId, need.locationId);
+      const assigned = await totalAssignedAtLocation(tx, need.itemId, need.locationId);
+      if (physical - assigned < need.quantity) {
+        throw new Error(`لا يمكن نقل أو إخراج مواد في عهدة موظف. المتاح غير المعهود ${physical - assigned} والمطلوب ${need.quantity}`);
+      }
+    }
+
     if (document.postingMode === PostingMode.POST_TO_STOCK) {
       for (const movement of planned) {
         await tx.inventoryMovement.create({
