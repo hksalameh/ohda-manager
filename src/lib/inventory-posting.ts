@@ -262,11 +262,11 @@ export async function postInventoryDocument(documentId: string) {
     // to employees. Aggregate repeated lines before enforcing this guard.
     const unassignedNeeds = new Map<string, { itemId: string; locationId: string; quantity: number }>();
     for (const movement of planned) {
-      if (!movement.fromLocationId || ![
-        MovementType.TRANSFER,
-        MovementType.ISSUE,
-        MovementType.ADJUST_OUT,
-      ].includes(movement.movementType)) continue;
+      if (!movement.fromLocationId || (
+        movement.movementType !== MovementType.TRANSFER &&
+        movement.movementType !== MovementType.ISSUE &&
+        movement.movementType !== MovementType.ADJUST_OUT
+      )) continue;
       const key = `${movement.itemId}:${movement.fromLocationId}`;
       const previous = unassignedNeeds.get(key);
       unassignedNeeds.set(key, {

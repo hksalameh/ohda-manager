@@ -30,9 +30,6 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Install Android SDK components
-        uses: android-actions/setup-android@v3
-
       - name: Install Android API 35 and build tools
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
