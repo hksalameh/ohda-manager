@@ -1,0 +1,82 @@
+name: Windows Installer CI
+
+on:
+  push:
+    branches:
+      - "integration/**"
+    paths:
+      - "desktop/**"
+      - "src/**"
+      - "prisma/**"
+      - "scripts/smoke-windows-package.ps1"
+      - "package.json"
+      - "package-lock.json"
+      - "next.config.ts"
+      - ".github/workflows/windows-ci.yml"
+  pull_request:
+    paths:
+      - "desktop/**"
+      - "src/**"
+      - "prisma/**"
+      - "scripts/smoke-windows-package.ps1"
+      - "package.json"
+      - "package-lock.json"
+      - "next.config.ts"
+      - ".github/workflows/windows-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  windows-desktop:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      DATABASE_URL: file:./windows-ci.db
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - name: Check out review branch
+        uses: actions/checkout@v4
+
+      - name: Install Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate Prisma client for Windows
+        run: npm run db:generate
+
+      - name: Build web backend bundled into desktop app
+        run: npm run build
+
+      - name: Prepare standalone Electron application
+        run: npm run desktop:prepare
+
+      - name: Build Windows installer and portable folder
+        run: npx electron-builder --win nsis dir --x64 --publish never
+
+      - name: Smoke test packaged Windows server and routes
+        shell: pwsh
+        run: ./scripts/smoke-windows-package.ps1
+
+      - name: Verify installer output
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist-desktop -File -Filter '*Setup*.exe' | Select-Object -First 1
+          if (!$setup -or $setup.Length -lt 20000000) {
+            throw "Windows installer not found or suspiciously small"
+          }
+          Get-FileHash $setup.FullName -Algorithm SHA256 | Format-List | Out-String | Write-Host
+          Write-Host "PASS: Windows installer: $($setup.Name) ($([math]::Round($setup.Length/1MB,1)) MB)"
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ohda-Windows-Installer-QA
+          path: dist-desktop/*Setup*.exe
+          if-no-files-found: error
+          retention-days: 30
