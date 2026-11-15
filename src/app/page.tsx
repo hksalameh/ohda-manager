@@ -28,6 +28,8 @@ export default async function HomePage() {
   const unknown = unlocated ? balances.locationTotals.get(unlocated.id) ?? 0 : 0;
   const lanUrl = process.env.OHDA_LAN_URL?.trim() ?? "";
   const showPhoneAccess = Boolean(lanUrl) && isDesktopSession(await cookies());
+  // Reveal the phone access code only within the trusted Electron window.
+  const phoneAccessCode = showPhoneAccess ? process.env.OHDA_PASSWORD?.trim() ?? "" : "";
   const lanQr = showPhoneAccess ? await QRCode.toString(lanUrl, { type: "svg", margin: 1 }) : "";
 
   return <div className="mx-auto max-w-7xl space-y-6">
@@ -63,7 +65,7 @@ export default async function HomePage() {
     </details>
     {showPhoneAccess && <details className="rounded-2xl border bg-white p-5">
       <summary className="cursor-pointer text-sm font-extrabold">الوصول من الهاتف على شبكة المكتب</summary>
-      <div className="mt-4 flex flex-wrap items-center gap-4"><div className="w-36 [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: lanQr }}/><div><p dir="ltr" className="font-mono text-sm">{lanUrl}</p><p className="text-xs">رمز الدخول يظهر في برنامج ويندوز فقط.</p></div></div>
+      <div className="mt-4 flex flex-wrap items-center gap-4"><div className="w-36 [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: lanQr }}/><div><p dir="ltr" className="font-mono text-sm">{lanUrl}</p><p className="mt-2 text-sm font-bold">رمز دخول الهاتف:</p><strong dir="ltr" className="inline-block select-all rounded-lg bg-slate-100 px-4 py-2 font-mono text-2xl tracking-widest text-slate-900">{phoneAccessCode}</strong><p className="mt-2 text-xs text-slate-500">يظهر الرمز داخل برنامج ويندوز فقط.</p></div></div>
     </details>}
   </div>;
 }
