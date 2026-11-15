@@ -1,6 +1,6 @@
 {
   "name": "ohda-manager",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "author": "Smart Code Jo",
   "description": "نظام إدارة العهد واللوازم - مركز الرمثا",
@@ -23,7 +23,8 @@
     "import:ramtha": "tsx scripts/import-ramtha-xlsx.ts",
     "test:db": "tsx scripts/create-test-xlsx.ts .tmp/ramtha-test.xlsx && tsx scripts/import-ramtha-xlsx.ts .tmp/ramtha-test.xlsx --date=2025-12-31 && tsx scripts/verify-test-import.ts",
     "test:posting": "tsx scripts/test-posting.ts",
-    "test:room-audit": "tsx scripts/test-room-audit.ts"
+    "test:room-audit": "tsx scripts/test-room-audit.ts",
+    "test:current-custody": "tsx scripts/test-current-custody.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",

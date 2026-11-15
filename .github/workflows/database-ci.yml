@@ -59,6 +59,9 @@ jobs:
       - name: Test inventory posting rules
         run: npm run test:posting
 
+      - name: Test current employee-custody printing without duplicate assignment
+        run: npm run test:current-custody
+
       - name: Test non-destructive room audit planning
         run: npm run test:room-audit
 

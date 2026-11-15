@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { NEW_STOCK, UNLOCATED, planRoomAudit, type AuditKnown } from "../src/lib/room-audit-plan.ts";
+import { currentCustodyAtRoom } from "../src/lib/custody-snapshot.ts";
 
 const A = "ROOM_A";
 const B = "ROOM_B";
@@ -30,4 +31,15 @@ assert.throws(() => planRoomAudit(A, [{ ...base, actualQuantity: 7, surplusSourc
 assert.throws(() => planRoomAudit(A, [base, base], []), /مكررة/);
 assert.throws(() => planRoomAudit(A, [base], [{ itemId: "CHAIR", quantity: 2, sourceId: B }]), /تكرار/);
 assert.throws(() => planRoomAudit(A, [], [{ itemId: "X", quantity: -1, sourceId: B }]), /الكمية/);
-console.log("PASS: reconciliation keeps missing assets in stock, handles source/destination, and protects employee custody.");
+const personal = currentCustodyAtRoom("EMP", "ROOM", [
+  { itemId: "PROJECTOR", quantity: 2, fromEmployeeId: null, toEmployeeId: "EMP", fromLocationId: "ROOM", toLocationId: "ROOM" },
+  { itemId: "PROJECTOR", quantity: 1, fromEmployeeId: "EMP", toEmployeeId: null, fromLocationId: "ROOM", toLocationId: "STORAGE" },
+  { itemId: "MONITOR", quantity: 1, fromEmployeeId: null, toEmployeeId: "OTHER", fromLocationId: "ROOM", toLocationId: "ROOM" },
+]);
+assert.equal(personal.get("PROJECTOR"), 1, "السند الحالي يحتسب عهدة الموظف فقط بعد الإرجاع");
+assert.equal(personal.has("MONITOR"), false, "لا تضاف عهدة موظف آخر");
+assert.equal(currentCustodyAtRoom("EMP", "STORAGE", []).size, 0);
+assert.throws(() => currentCustodyAtRoom("EMP", "ROOM", [
+  { itemId: "PROJECTOR", quantity: 2, fromEmployeeId: "EMP", toEmployeeId: null, fromLocationId: "ROOM", toLocationId: "STORAGE" },
+]), /إرجاع عهدة أكبر/);
+console.log("PASS: reconciliation, missing-stock relocation, custody balance snapshots, no duplicate employee assignment.");
