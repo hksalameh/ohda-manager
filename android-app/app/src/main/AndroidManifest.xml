@@ -8,7 +8,7 @@
         android:label="إدارة العهد واللوازم"
         android:icon="@drawable/ohda_icon"
         android:allowBackup="false"
-        android:usesCleartextTraffic="false"
+        android:usesCleartextTraffic="true"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:hardwareAccelerated="true">
