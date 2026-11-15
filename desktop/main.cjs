@@ -8,7 +8,9 @@ const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
 
 const appDataRoot = app.getPath("appData");
-app.setPath("userData", path.join(appDataRoot, "OhdaManager"));
+// QA packages have an isolated data directory; the live app stays untouched.
+const isQaBuild = fs.existsSync(path.join(__dirname, "QA_BUILD"));
+app.setPath("userData", path.join(appDataRoot, isQaBuild ? "OhdaManager-QA" : "OhdaManager"));
 
 let mainWindow = null;
 let serverProcess = null;
@@ -141,9 +143,17 @@ function ensureDatabase() {
 
   if (!fs.existsSync(databasePath)) {
     const legacyDatabasePath = path.join(appDataRoot, "ohda-manager", "data", "ohda.db");
+    const liveDatabasePath = path.join(appDataRoot, "OhdaManager", "data", "ohda.db");
     const templatePath = path.join(__dirname, "runtime", "ohda-template.db");
 
-    if (fs.existsSync(legacyDatabasePath)) {
+    // A QA install clones an inactive live DB, never writes to it.
+    // An active WAL/journal means a plain file copy is unsafe; use a blank template.
+    const canCloneForQa = isQaBuild && fs.existsSync(liveDatabasePath) &&
+      !fs.existsSync(liveDatabasePath + "-wal") &&
+      !fs.existsSync(liveDatabasePath + "-journal");
+    if (canCloneForQa) {
+      fs.copyFileSync(liveDatabasePath, databasePath);
+    } else if (!isQaBuild && fs.existsSync(legacyDatabasePath)) {
       fs.copyFileSync(legacyDatabasePath, databasePath);
     } else if (!fs.existsSync(templatePath)) {
       throw new Error("ملف قاعدة البيانات الابتدائية غير موجود.");
@@ -213,7 +223,7 @@ async function createWindow(port) {
     autoHideMenuBar: true,
     backgroundColor: "#f1f5f9",
     icon: path.join(__dirname, "icon.png"),
-    title: "نظام إدارة العهد واللوازم",
+    title: isQaBuild ? "نظام إدارة العهد واللوازم — نسخة تجريبية" : "نظام إدارة العهد واللوازم",
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

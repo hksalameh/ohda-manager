@@ -6,7 +6,8 @@ import { TransferForm } from "./transfer-form";
 
 export const dynamic = "force-dynamic";
 
-export default async function TransferPage() {
+export default async function TransferPage({ searchParams }: { searchParams: Promise<{ fromLocationId?: string; itemId?: string }> }) {
+  const query = await searchParams;
   const center = await getCurrentCenter();
   if (!center) {
     return <p className="rounded-xl border border-amber-200 bg-amber-50 p-4">لا يوجد مركز مفعّل بعد.</p>;
@@ -57,7 +58,13 @@ export default async function TransferPage() {
           يلزم وجود موقعين فعالين على الأقل لإنشاء سند نقل.
         </section>
       ) : (
-        <TransferForm items={items} locations={locations} availability={availability} />
+        <TransferForm
+          items={items}
+          locations={locations}
+          availability={availability}
+          initialFromLocationId={locations.some((location) => location.id === query.fromLocationId) ? query.fromLocationId : ""}
+          initialItemId={items.some((item) => item.id === query.itemId && (availability[query.fromLocationId ?? ""]?.[item.id] ?? 0) > 0) ? query.itemId : ""}
+        />
       )}
     </div>
   );

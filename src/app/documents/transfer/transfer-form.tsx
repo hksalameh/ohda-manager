@@ -8,11 +8,17 @@ type LocationOption = { id: string; name: string };
 type Availability = Record<string, Record<string, number>>;
 type Line = { key: number; itemId: string; quantity: string; notes: string };
 
-export function TransferForm({ items, locations, availability }: { items: ItemOption[]; locations: LocationOption[]; availability: Availability }) {
-  const [fromLocationId, setFromLocationId] = useState("");
+export function TransferForm({ items, locations, availability, initialFromLocationId = "", initialItemId = "" }: {
+  items: ItemOption[];
+  locations: LocationOption[];
+  availability: Availability;
+  initialFromLocationId?: string;
+  initialItemId?: string;
+}) {
+  const [fromLocationId, setFromLocationId] = useState(initialFromLocationId);
   const [toLocationId, setToLocationId] = useState("");
   const [nextKey, setNextKey] = useState(2);
-  const [lines, setLines] = useState<Line[]>([{ key: 1, itemId: "", quantity: "1", notes: "" }]);
+  const [lines, setLines] = useState<Line[]>([{ key: 1, itemId: initialItemId, quantity: "1", notes: "" }]);
   const itemMap = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
   const availableItems = useMemo(() => items.filter((item) => (availability[fromLocationId]?.[item.id] ?? 0) > 0), [availability, fromLocationId, items]);
 

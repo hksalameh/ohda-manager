@@ -4,6 +4,7 @@ import { CounterpartyType, DocumentStatus, DocumentType, PostingMode } from "@pr
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getCurrentCenter } from "@/lib/current-center";
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -47,6 +48,18 @@ export async function createItem(formData: FormData) {
   });
 
   revalidatePath("/items");
+  const stocktakeLocationId = text(formData, "stocktakeLocationId");
+  if (stocktakeLocationId) {
+    const center = await getCurrentCenter();
+    const location = center ? await prisma.location.findFirst({
+      where: { id: stocktakeLocationId, centerId: center.id, active: true },
+      select: { id: true },
+    }) : null;
+    if (location) {
+      revalidatePath("/stocktake");
+      redirect(`/stocktake?locationId=${encodeURIComponent(location.id)}&newItemId=${encodeURIComponent(item.id)}`);
+    }
+  }
   redirect(`/items/${item.id}`);
 }
 

@@ -32,6 +32,18 @@ desktop/server/
 # Local test output
 .tmp/
 
+# Android generated outputs and local signing secrets
+android-app/.gradle/
+android-app/.cxx/
+android-app/build/
+android-app/app/build/
+android-app/local.properties
+android-app/*.keystore
+android-app/*.jks
+*.apk
+*.aab
+*.tsbuildinfo
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

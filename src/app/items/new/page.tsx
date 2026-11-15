@@ -1,16 +1,19 @@
 import Link from "next/link";
 import { createItem } from "../actions";
 
-export default function NewItemPage() {
+export default async function NewItemPage({ searchParams }: { searchParams: Promise<{ stocktakeLocationId?: string }> }) {
+  const params = await searchParams;
+  const stocktakeLocationId = params.stocktakeLocationId ?? "";
   const inputClass = "mt-1 w-full rounded-lg border border-slate-300 px-3 py-2";
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <p className="text-sm text-slate-500">المواد</p>
         <h2 className="mt-1 text-2xl font-bold text-slate-900">إضافة مادة جديدة</h2>
-        <p className="mt-2 text-sm leading-7 text-slate-500">تستخدم للمواد الجديدة التي لم تكن موجودة في ملف الجرد الافتتاحي. إضافة تعريف المادة وحده لا تزيد المخزون؛ الكمية تدخل لاحقاً من خلال مستند إدخال.</p>
+        <p className="mt-2 text-sm leading-7 text-slate-500">تستخدم للمواد الجديدة التي لم تكن موجودة في ملف الجرد الافتتاحي. {stocktakeLocationId ? "بعد الحفظ ستعود تلقائياً للجرد، وتظهر المادة الجديدة بكمية ابتدائية (1) لتعديلها قبل حفظ مسودة التسوية." : "إضافة تعريف المادة وحده لا تزيد المخزون؛ الكمية تدخل لاحقاً من خلال سند إدخال أو جرد غرفة."}</p>
       </div>
       <form action={createItem} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        {stocktakeLocationId ? <input type="hidden" name="stocktakeLocationId" value={stocktakeLocationId} /> : null}
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm font-medium text-slate-700">رقم المادة
             <input name="itemCode" className={inputClass} />
@@ -30,7 +33,7 @@ export default function NewItemPage() {
         </label>
         <div className="flex gap-3">
           <button className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-800">حفظ المادة</button>
-          <Link href="/items" className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium hover:bg-slate-50">إلغاء</Link>
+          <Link href={stocktakeLocationId ? `/stocktake?locationId=${encodeURIComponent(stocktakeLocationId)}` : "/items"} className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium hover:bg-slate-50">إلغاء</Link>
         </div>
       </form>
     </div>

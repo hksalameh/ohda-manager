@@ -140,6 +140,22 @@ async function main() {
   }
   assert(custodyRejected, "يجب رفض عهدة أكبر من الكمية غير المعهود بها في الغرفة");
 
+  // A room contains 3 pieces but 2 are in the employee's custody.
+  // Moving 2 pieces must be rejected even though the total stock is 3.
+  const transferEntrusted = await createDocument({
+    centerId: center.id,
+    type: DocumentType.TRANSFER,
+    fromLocationId: room.id,
+    toLocationId: store.id,
+    itemId: item.id,
+    quantity: 2,
+    no: "TR-ASSIGNED-OVER",
+  });
+  let assignedTransferRejected = false;
+  try { await postInventoryDocument(transferEntrusted.id); } catch { assignedTransferRejected = true; }
+  assert(assignedTransferRejected, "يجب منع نقل الكمية المعهودة لموظف إلى غرفة أخرى");
+  assert((await getLocationItemBalance(item.id, room.id)) === 3, "فشل النقل يجب ألا يغيّر رصيد الغرفة");
+
   const returnDoc = await createDocument({
     centerId: center.id,
     type: DocumentType.RETURN,
