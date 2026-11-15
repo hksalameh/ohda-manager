@@ -84,7 +84,12 @@ export default function AuditForm({ roomId, roomName, known, allItems, locations
     setValidation("");
   }
   function addItem(id: string) {
-    setExtras((old) => [...old, { itemId: id, quantity: "1", source: "" }]);
+    const possibleSources = sourceOptions(id);
+    setExtras((old) => [...old, {
+      itemId: id,
+      quantity: "1",
+      source: possibleSources.length === 1 ? possibleSources[0].id : "",
+    }]);
     setAddQuery("");
     setValidation("");
   }
