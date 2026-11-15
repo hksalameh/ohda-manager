@@ -54,7 +54,31 @@ async function main() {
   assert.equal(await getEmployeeItemBalanceAtLocation(employee.id, item.id, source.id), 0);
   assert.equal(await prisma.inventoryDocument.count({ where: { id: { in: good }, status: "POSTED" } }), 2);
   await assert.rejects(postRoomAuditBatch(good, center.id, source.id), /مستندات الجرد غير مكتملة/);
-  console.log("PASS: employee custody auto-return + one-step physical transfer; failed batch rolls back completely; cannot double-post.");
+
+  // The other direction: the audited room discovers an item in another
+  // room's employee custody. This must not be blocked either.
+  const inbound = await prisma.item.create({ data: { name: "جهاز موجود بالغرفة الجديدة", itemCode: `FOUND-${Date.now()}` } });
+  await prisma.inventoryMovement.createMany({ data: [
+    { itemId: inbound.id, movementType: MovementType.OPENING, movementDate: new Date(), quantity: 1, toLocationId: source.id },
+    { itemId: inbound.id, movementType: MovementType.CUSTODY_ASSIGN, movementDate: new Date(), quantity: 1,
+      fromLocationId: source.id, toLocationId: source.id, toEmployeeId: employee.id },
+  ] });
+  const ref = "JRD-20261115-abcde125";
+  const inboundReturn = await prisma.inventoryDocument.create({ data: {
+    centerId: center.id, documentNo: `${ref}-1`, documentDate: new Date(),
+    documentType: DocumentType.RETURN, fromLocationId: source.id, toLocationId: source.id, employeeId: employee.id,
+    lines: { create: { itemId: inbound.id, quantity: 1, lineNo: 1, itemNameSnapshot: inbound.name } },
+  } });
+  const inboundTransfer = await prisma.inventoryDocument.create({ data: {
+    centerId: center.id, documentNo: `${ref}-2`, documentDate: new Date(),
+    documentType: DocumentType.TRANSFER, fromLocationId: source.id, toLocationId: dest.id,
+    lines: { create: { itemId: inbound.id, quantity: 1, lineNo: 1, itemNameSnapshot: inbound.name } },
+  } });
+  await postRoomAuditBatch([inboundTransfer.id, inboundReturn.id], center.id, dest.id);
+  assert.equal(await getLocationItemBalance(inbound.id, source.id), 0);
+  assert.equal(await getLocationItemBalance(inbound.id, dest.id), 1);
+  assert.equal(await getEmployeeItemBalanceAtLocation(employee.id, inbound.id, source.id), 0);
+  console.log("PASS: auto custody reconciliation for outgoing and discovered incoming items; full rollback on failure; no double-post.");
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; }).finally(() => prisma.$disconnect());
