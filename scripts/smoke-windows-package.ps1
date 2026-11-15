@@ -7,8 +7,9 @@ $serverRoot = Join-Path $unpacked "resources\server"
 $serverJs = Join-Path $serverRoot "server.js"
 $serverModules = Join-Path $serverRoot "server_modules"
 $templateDb = Join-Path $unpacked "resources\app\runtime\ohda-template.db"
+$qaMarker = Join-Path $unpacked "resources\app\QA_BUILD"
 
-foreach ($required in @($serverJs, $serverModules, $templateDb)) {
+foreach ($required in @($serverJs, $serverModules, $templateDb, $qaMarker)) {
   if (-not (Test-Path $required)) { throw "Missing packaged runtime asset: $required" }
 }
 $isolated = Join-Path $env:RUNNER_TEMP "ohda-desktop-qa-$PID"

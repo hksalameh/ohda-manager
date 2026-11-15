@@ -56,8 +56,12 @@ jobs:
       - name: Prepare standalone Electron application
         run: npm run desktop:prepare
 
-      - name: Build Windows installer and portable folder
-        run: npx electron-builder --win nsis dir --x64 --publish never
+      - name: Isolate QA app data from production
+        shell: pwsh
+        run: Set-Content -Path desktop/app/QA_BUILD -Value 'OHDA QA ISOLATED' -Encoding Ascii
+
+      - name: Build QA Windows installer and standalone folder
+        run: npx electron-builder --config desktop/qa-builder.js --win nsis dir --x64 --publish never
 
       - name: Smoke test packaged Windows server and routes
         shell: pwsh
@@ -66,7 +70,7 @@ jobs:
       - name: Verify installer output
         shell: pwsh
         run: |
-          $setup = Get-ChildItem dist-desktop -File -Filter '*Setup*.exe' | Select-Object -First 1
+          $setup = Get-ChildItem dist-desktop -File -Filter 'Ohda-Manager-QA*.exe' | Select-Object -First 1
           if (!$setup -or $setup.Length -lt 20000000) {
             throw "Windows installer not found or suspiciously small"
           }
@@ -77,6 +81,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Ohda-Windows-Installer-QA
-          path: dist-desktop/*Setup*.exe
+          path: dist-desktop/Ohda-Manager-QA*.exe
           if-no-files-found: error
           retention-days: 30
