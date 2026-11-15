@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentCenter } from "@/lib/current-center";
 import { getCenterInventoryBalances } from "@/lib/inventory-query";
 import { getAssignedCustodyTotalsAtLocation, getEmployeeCustodyBalances } from "@/lib/custody-query";
-import { printCurrentEmployeeCustody } from "./custody-actions";
-import { createCustodyDraftFromRoom } from "@/app/employees/actions";
+import RoomCustodyActions from "@/components/room-custody-actions";
+
 import ClearAuditDraft from "./audit/review/clear-audit-draft";
 
 export const dynamic = "force-dynamic";
@@ -107,16 +107,13 @@ export default async function RoomDetailsPage({
             <strong className="text-base text-slate-950">{assignment.employee.fullName}</strong>
             <p className="mt-1 text-xs text-slate-500">{assignment.employee.employeeNo || "بدون رقم وظيفي"} • عهدته الحالية: {held.types} صنف، {held.pieces} قطعة</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <form action={printCurrentEmployeeCustody}>
-                <input type="hidden" name="employeeId" value={assignment.employeeId}/>
-                <input type="hidden" name="roomId" value={room.id}/>
-                <button disabled={pending.length > 0 || held.pieces === 0} className="rounded-xl bg-emerald-700 px-4 py-3 text-sm font-extrabold text-white hover:bg-emerald-800 disabled:opacity-40">طباعة سند العهدة الحالية</button>
-              </form>
-              {availablePieces > 0 && <form action={createCustodyDraftFromRoom}>
-                <input type="hidden" name="employeeId" value={assignment.employeeId}/>
-                <input type="hidden" name="returnTo" value={`/locations/${room.id}`}/>
-                <button disabled={pending.length > 0} className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 disabled:opacity-40">تسليم مواد جديدة</button>
-              </form>}
+              <RoomCustodyActions
+                employeeId={assignment.employeeId}
+                roomId={room.id}
+                heldPieces={held.pieces}
+                unassignedPieces={availablePieces}
+                blocked={pending.length > 0}
+              />
             </div>
             {held.pieces === 0 && <p className="mt-2 text-xs text-slate-500">لا توجد عهدة شخصية مسجلة لهذا الموظف هنا حاليًا.</p>}
           </article>;

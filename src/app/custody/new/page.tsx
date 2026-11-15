@@ -3,8 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentCenter } from "@/lib/current-center";
 import { getCenterInventoryBalances } from "@/lib/inventory-query";
 import { currentCustodyAtRoom } from "@/lib/custody-snapshot";
-import { printCurrentEmployeeCustody } from "@/app/locations/[id]/custody-actions";
-import { createCustodyDraftFromRoom } from "@/app/employees/actions";
+import RoomCustodyActions from "@/components/room-custody-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +93,7 @@ export default async function PersonalCustodyPage({
     {query.error && <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-900">{query.error}</p>}
 
     <section className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-      <div className="border-b p-5"><h2 className="text-xl font-extrabold">الموظفون وعهدتهم الحالية</h2><p className="mt-1 text-sm text-slate-500">الطباعة لا تغيّر أرصدة المخزون أو تضيف عهدة جديدة.</p></div>
+      <div className="border-b p-5"><h2 className="text-xl font-extrabold">الموظفون وعهدتهم الحالية</h2><p className="mt-1 text-sm text-slate-500">طباعة العهدة السابقة لا تغيّر الأرصدة؛ أما إضافة المواد الجديدة فتتطلب موافقتك وتُسجل حركة تسليم رسمية قبل طباعة سند شامل.</p></div>
       <div className="divide-y divide-slate-100">
         {rows.map(({ employee, assignment, pieces, types, unassigned, pending }) =>
           <article key={employee.id} className="flex flex-wrap items-center justify-between gap-3 p-5">
@@ -105,16 +104,13 @@ export default async function PersonalCustodyPage({
               {pending && <p className="mt-2 text-xs font-bold text-amber-800">توجد حركات جرد معلقة؛ اعتمدها أولًا</p>}
             </div>
             <div className="flex flex-wrap gap-2">
-              {assignment && pieces > 0 && <form action={printCurrentEmployeeCustody}>
-                <input type="hidden" name="employeeId" value={employee.id}/>
-                <input type="hidden" name="roomId" value={assignment.locationId}/>
-                <button disabled={pending} className="rounded-xl bg-emerald-700 px-4 py-3 text-sm font-extrabold text-white hover:bg-emerald-800 disabled:opacity-40">طباعة سند العهدة الحالية</button>
-              </form>}
-              {assignment && unassigned > 0 && <form action={createCustodyDraftFromRoom}>
-                <input type="hidden" name="employeeId" value={employee.id}/>
-                <input type="hidden" name="returnTo" value="/custody/new"/>
-                <button disabled={pending} className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 disabled:opacity-40">تسليم مواد جديدة</button>
-              </form>}
+              {assignment && <RoomCustodyActions
+                employeeId={employee.id}
+                roomId={assignment.locationId}
+                heldPieces={pieces}
+                unassignedPieces={unassigned}
+                blocked={pending}
+              />}
               {assignment && <Link href={`/locations/${assignment.locationId}/audit`} className="rounded-xl border border-teal-300 px-4 py-3 text-sm font-bold text-teal-800">جرد الغرفة</Link>}
               {!assignment && <Link href="/employees" className="rounded-xl border px-4 py-3 text-sm font-bold">تحديد الغرفة</Link>}
             </div>

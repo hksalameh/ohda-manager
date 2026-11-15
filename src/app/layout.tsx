@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import CenterSwitcher from "@/components/center-switcher";
 import OfflineStatus from "@/components/offline-status";
-import { authEnabled } from "@/lib/auth";
+import { authEnabled, isDesktopSession } from "@/lib/auth";
+import DesktopExitButton from "@/components/desktop-exit-button";
 import { logout } from "@/app/login/actions";
 import "./globals.css";
 
@@ -44,7 +46,8 @@ const mobileLinks = [
   { href: "/custody/new", label: "العهدة" },
 ];
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const desktop = isDesktopSession(await cookies());
   return (
     <html lang="ar" dir="rtl">
       <body className="overflow-x-hidden">
@@ -75,7 +78,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 ))}
               </div>
             </nav>
-            {authEnabled() ? (
+            {desktop ? <DesktopExitButton /> : authEnabled() ? (
               <form action={logout} className="mt-5">
                 <button className="w-full rounded-lg border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-white/10">تسجيل الخروج</button>
               </form>

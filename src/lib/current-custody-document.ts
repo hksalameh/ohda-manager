@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { DocumentStatus, DocumentType, PostingMode } from "@prisma/client";
+import { DocumentStatus, DocumentType, MovementType, PostingMode } from "@prisma/client";
 import { prisma } from "./prisma";
 import { currentCustodyAtRoom } from "./custody-snapshot";
 
@@ -9,6 +9,8 @@ export async function createCurrentCustodyDocument(input: {
   employeeId: string;
   roomId: string;
   templateVersionId: string;
+  /** Explicitly assign remaining unassigned stock in the room, then print a full handover. */
+  assignRoomStock?: boolean;
 }) {
   const now = new Date();
 
@@ -51,6 +53,98 @@ export async function createCurrentCustodyDocument(input: {
       },
     });
     const assigned = currentCustodyAtRoom(input.employeeId, input.roomId, movements);
+
+    if (input.assignRoomStock) {
+      const roomMovements = await tx.inventoryMovement.findMany({
+        where: { OR: [{ toLocationId: room.id }, { fromLocationId: room.id }] },
+        select: {
+          itemId: true, quantity: true, fromLocationId: true, toLocationId: true,
+          fromEmployeeId: true, toEmployeeId: true,
+        },
+      });
+      const physical = new Map<string, number>();
+      const assignedToAll = new Map<string, number>();
+      for (const movement of roomMovements) {
+        const oldPhysical = physical.get(movement.itemId) ?? 0;
+        const oldAssigned = assignedToAll.get(movement.itemId) ?? 0;
+        physical.set(movement.itemId, oldPhysical
+          + (movement.toLocationId === room.id ? movement.quantity : 0)
+          - (movement.fromLocationId === room.id ? movement.quantity : 0));
+        assignedToAll.set(movement.itemId, oldAssigned
+          + (movement.toLocationId === room.id && movement.toEmployeeId ? movement.quantity : 0)
+          - (movement.fromLocationId === room.id && movement.fromEmployeeId ? movement.quantity : 0));
+      }
+
+      const newlyHandedOver = new Map<string, number>();
+      for (const [itemId, stock] of physical) {
+        const held = assignedToAll.get(itemId) ?? 0;
+        if (stock < 0 || held < 0 || held > stock) {
+          throw new Error("توجد فروقات غير صحيحة بين رصيد الغرفة والعهد الشخصية. يجب مراجعتها قبل التسليم");
+        }
+        if (stock > held) newlyHandedOver.set(itemId, stock - held);
+      }
+      if (newlyHandedOver.size) {
+        const freshItems = await tx.item.findMany({
+          where: { id: { in: [...newlyHandedOver.keys()] } },
+          include: { unit: true },
+          orderBy: [{ name: "asc" }, { id: "asc" }],
+        });
+        if (freshItems.length !== newlyHandedOver.size) {
+          throw new Error("إحدى المواد الجديدة غير موجودة في دليل العهدة");
+        }
+        // One official posting records every NEW assignment. Existing custody
+        // remains unchanged and is included only once in the final snapshot.
+        const handover = await tx.inventoryDocument.create({
+          data: {
+            centerId: center.id,
+            documentNo: `CUST-ROOM-${randomUUID().slice(0, 8)}`,
+            documentType: DocumentType.CUSTODY,
+            postingMode: PostingMode.POST_TO_STOCK,
+            status: DocumentStatus.POSTED,
+            documentDate: now,
+            postedAt: now,
+            lockedAt: now,
+            employeeId: employee.id,
+            fromLocationId: room.id,
+            toLocationId: room.id,
+            templateVersionId: input.templateVersionId,
+            statement: `تسليم الموجودات الجديدة للموظف ${employee.fullName} من ${room.name} بعد الجرد`,
+            centerNameSnapshot: center.name,
+            employeeNameSnapshot: employee.fullName,
+            employeeNoSnapshot: employee.employeeNo,
+            fromLocationNameSnapshot: room.name,
+            toLocationNameSnapshot: room.name,
+            lines: { create: freshItems.map((item, index) => ({
+              lineNo: index + 1,
+              itemId: item.id,
+              quantity: newlyHandedOver.get(item.id)!,
+              itemCodeSnapshot: item.itemCode,
+              itemNameSnapshot: item.name,
+              unitNameSnapshot: item.unit?.name ?? null,
+              ledgerPageNo: item.legacyLedgerPageNo,
+            })) },
+          },
+          include: { lines: true },
+        });
+        for (const line of handover.lines) {
+          await tx.inventoryMovement.create({
+            data: {
+              itemId: line.itemId,
+              quantity: line.quantity,
+              movementType: MovementType.CUSTODY_ASSIGN,
+              movementDate: now,
+              fromLocationId: room.id,
+              toLocationId: room.id,
+              toEmployeeId: employee.id,
+              documentId: handover.id,
+              documentLineId: line.id,
+            },
+          });
+          assigned.set(line.itemId, (assigned.get(line.itemId) ?? 0) + line.quantity);
+        }
+      }
+    }
+
     if (!assigned.size) {
       throw new Error("لا توجد عهدة مسجلة لهذا الموظف في هذه الغرفة. يمكن إنشاء سند تسليم جديد للمواد غير المعهودة");
     }

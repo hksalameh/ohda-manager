@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { DocumentStatus, DocumentType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PrintButton } from "./print-button";
+import { CUSTODY_ROWS_PER_PAGE, paginateCustodyRows } from "@/lib/custody-print-pagination";
 
 export const dynamic = "force-dynamic";
 
@@ -38,8 +39,9 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
   }
 
   if (document.documentType === DocumentType.CUSTODY) {
-    const rowsPerPage = 23;
-    const pages = chunk(document.lines, rowsPerPage);
+    // The official sheet already has space for 24 rows; avoid a lone 24th row on page two.
+    const rowsPerPage = CUSTODY_ROWS_PER_PAGE;
+    const pages = paginateCustodyRows(document.lines);
     const centerName = document.centerNameSnapshot ?? document.center.name;
     const employeeName = document.employeeNameSnapshot ?? document.employee?.fullName ?? "";
     const d = document.documentDate;
@@ -105,7 +107,7 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
                 <thead><tr><th>رقم المادة</th><th>المـــــــادة</th><th>الكمية</th></tr></thead>
                 <tbody>
                   {lines.map((line) => <tr key={line.id}><td className="code">{line.itemCodeSnapshot ?? ""}</td><td className="name">{line.itemNameSnapshot}</td><td className="qty">{line.quantity}</td></tr>)}
-                  {Array.from({ length: Math.max(0, 24 - lines.length) }).map((_, index) => <tr key={`empty-${index}`}><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>)}
+                  {Array.from({ length: Math.max(0, rowsPerPage - lines.length) }).map((_, index) => <tr key={`empty-${index}`}><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>)}
                 </tbody>
               </table>
               <div className="custody-signatures">

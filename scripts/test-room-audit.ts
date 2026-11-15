@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { NEW_STOCK, UNLOCATED, planRoomAudit, type AuditKnown } from "../src/lib/room-audit-plan.ts";
 import { currentCustodyAtRoom } from "../src/lib/custody-snapshot.ts";
+import { CUSTODY_ROWS_PER_PAGE, paginateCustodyRows } from "../src/lib/custody-print-pagination.ts";
 
 const A = "ROOM_A";
 const B = "ROOM_B";
@@ -42,4 +43,7 @@ assert.equal(currentCustodyAtRoom("EMP", "STORAGE", []).size, 0);
 assert.throws(() => currentCustodyAtRoom("EMP", "ROOM", [
   { itemId: "PROJECTOR", quantity: 2, fromEmployeeId: "EMP", toEmployeeId: null, fromLocationId: "ROOM", toLocationId: "STORAGE" },
 ]), /إرجاع عهدة أكبر/);
-console.log("PASS: reconciliation, missing-stock relocation, custody balance snapshots, no duplicate employee assignment.");
+assert.equal(CUSTODY_ROWS_PER_PAGE, 24, "تطابق عدد الصفوف مع جدول الطباعة الرسمي");
+assert.equal(paginateCustodyRows(Array.from({ length: 24 }, (_, i) => i)).length, 1, "24 مادة يجب أن تُطبع على صفحة واحدة");
+assert.deepEqual(paginateCustodyRows(Array.from({ length: 25 }, (_, i) => i)).map((page) => page.length), [24, 1]);
+console.log("PASS: inventory reconciliation, employee custody, official 24-row A4 print pagination.");

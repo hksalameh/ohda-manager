@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const http = require("node:http");
@@ -228,6 +228,7 @@ async function createWindow(port) {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
+      preload: path.join(__dirname, "preload.cjs"),
     },
   });
 
@@ -271,6 +272,11 @@ async function startApplication() {
     app.quit();
   }
 }
+
+// Only the application window can close the native desktop app.
+ipcMain.on("ohda:close-app", (event) => {
+  if (mainWindow && event.sender === mainWindow.webContents) app.quit();
+});
 
 app.on("second-instance", () => {
   if (!mainWindow) return;

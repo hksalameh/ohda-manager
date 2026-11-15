@@ -75,6 +75,34 @@ async function main() {
   assert.equal((await prisma.inventoryDocumentLine.findFirst({ where: { documentId: again.id } }))?.quantity, 2);
   assert.equal(await prisma.inventoryMovement.count(), before, "تكرار الطباعة لا يكرر العهدة");
 
+  // Explicitly approve the additional one piece found in the room and
+  // print one combined handover, without reassigning the previous two.
+  const combined = await createCurrentCustodyDocument({
+    centerId: center.id, employeeId: employee.id, roomId: room.id,
+    templateVersionId: template.id, assignRoomStock: true,
+  });
+  const combinedLines = await prisma.inventoryDocumentLine.findMany({ where: { documentId: combined.id } });
+  assert.equal(combinedLines.length, 1);
+  assert.equal(combinedLines[0].quantity, 3, "السند الجديد يجب أن يشمل القديم والموجودات الجديدة");
+  assert.equal(await prisma.inventoryMovement.count(), before + 1, "يجب إضافة حركة تسليم للقطعة الجديدة فقط");
+  const handover = await prisma.inventoryDocument.findFirst({
+    where: { centerId: center.id, documentNo: { startsWith: "CUST-ROOM-" } },
+  });
+  assert.equal(handover?.postingMode, PostingMode.POST_TO_STOCK, "المواد الجديدة يجب أن تُسلّم بسند حركة حقيقي");
+  const repeatCombined = await createCurrentCustodyDocument({
+    centerId: center.id, employeeId: employee.id, roomId: room.id,
+    templateVersionId: template.id, assignRoomStock: true,
+  });
+  assert.equal((await prisma.inventoryDocumentLine.findFirst({ where: { documentId: repeatCombined.id } }))?.quantity, 3);
+  assert.equal(await prisma.inventoryMovement.count(), before + 1, "تكرار سند شامل لا يكرر التسليم");
+  const physical = await prisma.inventoryMovement.findMany({
+    where: { itemId: item.id },
+    select: { quantity: true, fromLocationId: true, toLocationId: true },
+  });
+  assert.equal(physical.reduce((stock, m) =>
+    stock + (m.toLocationId === room.id ? m.quantity : 0) - (m.fromLocationId === room.id ? m.quantity : 0), 0),
+    3, "اعتماد عهدة الموظف لا يغير عدد القطع الموجودة في الغرفة");
+
   const pending = await prisma.inventoryDocument.create({
     data: {
       centerId: center.id, documentNo: "JRD-20261115-12345678-1",
@@ -99,8 +127,8 @@ async function main() {
     /الموظف ليس مرتبطًا/,
     "يجب منع إنشاء سند لموظف في غرفة أخرى",
   );
-  assert.equal(await prisma.inventoryMovement.count(), before);
-  console.log("PASS: printable current-custody snapshot, no new stock movements, pending-audit protection, employee-room validation.");
+  assert.equal(await prisma.inventoryMovement.count(), before + 1);
+  console.log("PASS: existing custody print, one-step full room handover, no duplicate assignments, pending-audit protection.");
 }
 
 main().catch((error) => {
