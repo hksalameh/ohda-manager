@@ -39,6 +39,8 @@ export async function createLocation(formData: FormData) {
   const code = text(formData, "code") || null;
   const type = parseType(formData);
   if (!name) throw new Error("اسم الغرفة أو الموقع مطلوب");
+  if (code === "UNLOCATED" || name === "مواد غير محددة الموقع")
+    throw new Error("هذا الاسم والرمز محجوزان لنظام متابعة المواد غير محددة الموقع");
 
   const center = await getCurrentCenter();
   if (!center) throw new Error("لا يوجد مركز مفعّل");
@@ -64,15 +66,18 @@ export async function updateLocation(formData: FormData) {
   const code = text(formData, "code") || null;
   const type = parseType(formData);
   if (!locationId || !name) throw new Error("اسم الغرفة أو الموقع مطلوب");
+  if (code === "UNLOCATED" || name === "مواد غير محددة الموقع")
+    throw new Error("هذا الاسم والرمز محجوزان لنظام متابعة المواد غير محددة الموقع");
 
   const center = await getCurrentCenter();
   if (!center) throw new Error("لا يوجد مركز مفعّل");
 
   const location = await prisma.location.findFirst({
     where: { id: locationId, centerId: center.id, active: true },
-    select: { id: true },
+    select: { id: true, code: true },
   });
   if (!location) throw new Error("الغرفة غير موجودة في المركز الحالي");
+  if (location.code === "UNLOCATED") throw new Error("لا يمكن تعديل موقع المتابعة الافتراضي");
 
   await ensureUnique(center.id, name, code, locationId);
   await prisma.location.update({

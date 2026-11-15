@@ -2,7 +2,7 @@ name: Application CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "feature/**"]
     paths:
       - "prisma/**"
       - "scripts/**"
@@ -58,6 +58,9 @@ jobs:
 
       - name: Test inventory posting rules
         run: npm run test:posting
+
+      - name: Test non-destructive room audit planning
+        run: npm run test:room-audit
 
       - name: Test consistent SQLite backup
         run: |

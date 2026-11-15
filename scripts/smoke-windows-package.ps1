@@ -46,7 +46,7 @@ try {
   if (-not $live) { throw "Packaged server did not respond. $((Get-Content $logErr -Raw -ErrorAction SilentlyContinue))" }
   Write-Host "PASS: Packaged standalone Windows server starts from the installer runtime."
 
-  foreach ($route in @("/locations", "/items/new", "/stocktake", "/documents/transfer")) {
+  foreach ($route in @("/locations", "/items", "/items/new", "/stocktake", "/locations/unlocated", "/documents/transfer")) {
     $response = Invoke-WebRequest -Uri "$base$route" -UseBasicParsing -TimeoutSec 20
     if ($response.StatusCode -ne 200 -or $response.Content -match "Internal Server Error|Application error:") {
       throw "Runtime smoke failed for $route (status $($response.StatusCode))"

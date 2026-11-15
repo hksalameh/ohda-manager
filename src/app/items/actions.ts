@@ -57,7 +57,7 @@ export async function createItem(formData: FormData) {
     }) : null;
     if (location) {
       revalidatePath("/stocktake");
-      redirect(`/stocktake?locationId=${encodeURIComponent(location.id)}&newItemId=${encodeURIComponent(item.id)}`);
+      redirect(`/locations/${encodeURIComponent(location.id)}/audit?newItemId=${encodeURIComponent(item.id)}`);
     }
   }
   redirect(`/items/${item.id}`);

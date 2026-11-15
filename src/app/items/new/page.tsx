@@ -33,7 +33,7 @@ export default async function NewItemPage({ searchParams }: { searchParams: Prom
         </label>
         <div className="flex gap-3">
           <button className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-800">حفظ المادة</button>
-          <Link href={stocktakeLocationId ? `/stocktake?locationId=${encodeURIComponent(stocktakeLocationId)}` : "/items"} className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium hover:bg-slate-50">إلغاء</Link>
+          <Link href={stocktakeLocationId ? `/locations/${encodeURIComponent(stocktakeLocationId)}/audit` : "/items"} className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium hover:bg-slate-50">إلغاء</Link>
         </div>
       </form>
     </div>

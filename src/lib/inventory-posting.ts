@@ -183,8 +183,8 @@ function planLine(
   }
 }
 
-export async function postInventoryDocument(documentId: string) {
-  return prisma.$transaction(async (tx) => {
+async function postInventoryDocumentInTransaction(tx: Tx, documentId: string, partOfRoomAudit = false) {
+
     const document = await tx.inventoryDocument.findUnique({
       where: { id: documentId },
       include: {
@@ -200,6 +200,9 @@ export async function postInventoryDocument(documentId: string) {
     if (!document) throw new Error("المستند غير موجود");
     if (document.status !== DocumentStatus.DRAFT) throw new Error("لا يمكن ترحيل مستند غير موجود في حالة مسودة");
     if (document.lines.length === 0) throw new Error("لا يمكن ترحيل مستند بلا مواد");
+    if (/^JRD-\d{8}-[a-f0-9]{8}-\d+$/.test(document.documentNo ?? "") && !partOfRoomAudit) {
+      throw new Error("يجب اعتماد جميع حركات جرد الغرفة دفعة واحدة من صفحة مراجعة الجرد");
+    }
 
     const isHistorical =
       document.documentType === DocumentType.HISTORICAL_RECEIPT ||
@@ -317,7 +320,41 @@ export async function postInventoryDocument(documentId: string) {
         counterpartyNameSnapshot: document.counterparty?.name ?? null,
       },
     });
-  });
+}
+
+export async function postInventoryDocument(documentId: string) {
+  return prisma.$transaction((tx) => postInventoryDocumentInTransaction(tx, documentId));
+}
+
+/** Approve ALL room-audit movements atomically. A failed transfer rolls back every change. */
+export async function postRoomAuditBatch(documentIds: string[], centerId: string, roomId: string) {
+  if (documentIds.length === 0 || documentIds.length > 30 || new Set(documentIds).size !== documentIds.length)
+    throw new Error("قائمة سندات الجرد غير صالحة");
+  return prisma.$transaction(async (tx) => {
+    const documents = await tx.inventoryDocument.findMany({
+      where: { id: { in: documentIds }, centerId },
+      select: { id: true, documentNo: true, status: true, documentType: true, fromLocationId: true, toLocationId: true },
+    });
+    if (documents.length !== documentIds.length || documents.some((doc) =>
+      doc.status !== DocumentStatus.DRAFT ||
+      (doc.documentType !== DocumentType.TRANSFER && doc.documentType !== DocumentType.ADJUSTMENT) ||
+      (doc.fromLocationId !== roomId && doc.toLocationId !== roomId) ||
+      !/^JRD-\d{8}-[a-f0-9]{8}-\d+$/.test(doc.documentNo ?? ""),
+    )) throw new Error("مستندات الجرد غير مكتملة أو غير مرتبطة بهذه الغرفة");
+    const refs = new Set(documents.map((doc) => doc.documentNo!.replace(/-\d+$/, "")));
+    if (refs.size !== 1) throw new Error("لا يمكن اعتماد أكثر من جرد في عملية واحدة");
+    const reference = [...refs][0];
+    const allBatch = await tx.inventoryDocument.findMany({
+      where: { centerId, documentNo: { startsWith: reference + "-" } },
+      select: { id: true },
+    });
+    if (allBatch.length !== documentIds.length || allBatch.some((doc) => !documentIds.includes(doc.id))) {
+      throw new Error("يجب اعتماد كامل مستندات هذا الجرد دون استثناء");
+    }
+    const posted = [];
+    for (const id of documentIds) posted.push(await postInventoryDocumentInTransaction(tx, id, true));
+    return posted;
+  }, { timeout: 20000 });
 }
 
 export async function getLocationItemBalance(itemId: string, locationId: string) {

@@ -8,168 +8,62 @@ import { getCenterInventoryBalances } from "@/lib/inventory-query";
 
 export const dynamic = "force-dynamic";
 
-function Stat({ title, value, note }: { title: string; value: string | number; note?: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-bold text-slate-500">{title}</p>
-      <p className="mt-1 text-2xl font-extrabold text-slate-900">{value}</p>
-      {note ? <p className="mt-1 text-xs text-slate-500">{note}</p> : null}
-    </div>
-  );
-}
-
-function TaskCard({
-  href,
-  number,
-  title,
-  description,
-  action,
-  tone = "blue",
-}: {
-  href: string;
-  number: string;
-  title: string;
-  description: string;
-  action: string;
-  tone?: "blue" | "emerald" | "amber" | "slate";
-}) {
-  const tones = {
-    blue: "border-blue-200 bg-blue-50/70 text-blue-900",
-    emerald: "border-emerald-200 bg-emerald-50/70 text-emerald-900",
-    amber: "border-amber-200 bg-amber-50/70 text-amber-950",
-    slate: "border-slate-200 bg-white text-slate-900",
-  };
-  const buttons = {
-    blue: "bg-blue-700 text-white",
-    emerald: "bg-emerald-700 text-white",
-    amber: "bg-amber-700 text-white",
-    slate: "bg-slate-900 text-white",
-  };
-
-  return (
-    <Link href={href} className={`group rounded-2xl border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${tones[tone]}`}>
-      <div className="flex items-start gap-4">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-lg font-black shadow-sm">{number}</div>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-xl font-extrabold">{title}</h3>
-          <p className="mt-2 text-sm leading-7 opacity-80">{description}</p>
-          <span className={`mt-4 inline-block rounded-lg px-4 py-2 text-sm font-bold ${buttons[tone]}`}>{action}</span>
-        </div>
-      </div>
-    </Link>
-  );
-}
+const routes = [
+  { href: "/items", title: "جميع المواد", text: "كل مادة، رصيدها، والغرف التي توجد فيها مع عدد القطع بكل غرفة.", action: "عرض المواد وأماكنها", number: "01", color: "bg-teal-700" },
+  { href: "/locations", title: "الغرف والجرد", text: "افتح أي غرفة وحدّد الموجود والمفقود، وانقل القطع أو ضعها في غير محدد الموقع.", action: "فتح الغرف والجرد", number: "02", color: "bg-blue-700" },
+  { href: "/locations/unlocated", title: "غير محدد الموقع", text: "قائمة القطع التي لم تحدد مكانها بعد؛ أعد توزيعها بعد معرفة غرفتها.", action: "متابعة المواد", number: "03", color: "bg-amber-700" },
+];
 
 export default async function HomePage() {
   const center = await getCurrentCenter();
-  if (!center) return <section className="rounded-xl border border-amber-200 bg-amber-50 p-6">لا يوجد مركز مفعّل بعد.</section>;
-
-  const [itemCount, locationCount, employeeCount, documentCount, draftCount, balances] = await Promise.all([
+  if (!center) return <p>لا يوجد مركز مفعّل بعد.</p>;
+  const [itemsCount, roomsCount, employeesCount, balances, unlocated] = await Promise.all([
     prisma.item.count({ where: { active: true } }),
-    prisma.location.count({ where: { centerId: center.id, active: true } }),
+    prisma.location.count({ where: { centerId: center.id, active: true, NOT: { code: "UNLOCATED" } } }),
     prisma.employee.count({ where: { centerId: center.id, active: true } }),
-    prisma.inventoryDocument.count({ where: { centerId: center.id } }),
-    prisma.inventoryDocument.count({ where: { centerId: center.id, status: "DRAFT" } }),
     getCenterInventoryBalances(center.id),
+    prisma.location.findFirst({ where: { centerId: center.id, code: "UNLOCATED" } }),
   ]);
-
-  const currentTotal = [...balances.itemTotals.values()].reduce((sum, quantity) => sum + quantity, 0);
-
-  // بطاقة ربط الهاتف تظهر فقط داخل برنامج ويندوز على الكمبيوتر نفسه، لأنها تعرض رمز الدخول.
+  const total = [...balances.itemTotals.values()].reduce((n, qty) => n + qty, 0);
+  const unknown = unlocated ? balances.locationTotals.get(unlocated.id) ?? 0 : 0;
   const lanUrl = process.env.OHDA_LAN_URL?.trim() ?? "";
   const showPhoneAccess = Boolean(lanUrl) && isDesktopSession(await cookies());
-  const lanQrSvg = showPhoneAccess ? await QRCode.toString(lanUrl, { type: "svg", margin: 1 }) : "";
-  const accessPin = authEnabled() ? process.env.OHDA_PASSWORD?.trim() ?? "" : "";
+  const lanQr = showPhoneAccess ? await QRCode.toString(lanUrl, { type: "svg", margin: 1 }) : "";
 
-  return (
-    <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white px-5 py-5 shadow-sm">
-        <p className="text-xs font-bold text-blue-700">مركز العمل</p>
-        <h2 className="mt-1 text-3xl font-extrabold text-slate-900">ماذا تريد أن تعمل الآن؟</h2>
-        <p className="mt-2 text-sm leading-7 text-slate-600">
-          اختر المهمة مباشرة. لا تحتاج للدخول إلى قوائم المستندات أو معرفة اسم العملية داخل النظام.
-        </p>
-      </section>
-
-      {!authEnabled() ? (
-        <section className="rounded-2xl border border-red-300 bg-red-50 p-4 text-sm leading-7 text-red-950">
-          <strong>تنبيه أمني:</strong> النظام مفتوح لأي جهاز على نفس الشبكة دون رمز دخول. أضف <code className="rounded bg-white px-1">OHDA_PASSWORD</code> إلى ملف <code className="rounded bg-white px-1">.env</code> ثم أعد التشغيل.
-        </section>
-      ) : null}
-
-      {showPhoneAccess ? (
-        <section className="flex flex-col gap-4 rounded-2xl border border-blue-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center">
-          <div className="mx-auto w-36 shrink-0 [&>svg]:h-auto [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: lanQrSvg }} />
-          <div className="min-w-0">
-            <h3 className="text-lg font-extrabold text-slate-900">الجرد من الهاتف</h3>
-            <p className="mt-1 text-sm leading-7 text-slate-600">وصّل الهاتف بنفس شبكة الواي فاي، ثم امسح هذا الرمز بكاميرا الهاتف أو افتح العنوان:</p>
-            <p dir="ltr" className="mt-1 break-all text-right font-mono text-base font-bold text-blue-800">{lanUrl}</p>
-            {accessPin ? <p className="mt-2 text-sm text-slate-700">رمز الدخول: <strong dir="ltr" className="font-mono text-xl tracking-widest text-slate-900">{accessPin}</strong></p> : null}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="grid gap-4 lg:grid-cols-2">
-        <TaskCard
-          href="/stocktake"
-          number="1"
-          title="جرد غرفة"
-          description="اختر الغرفة، شاهد المواد المسجلة فيها، أدخل الموجود فعليًا ثم راجع الفروقات قبل الاعتماد."
-          action="ابدأ الجرد"
-          tone="blue"
-        />
-        <TaskCard
-          href="/custody/new"
-          number="2"
-          title="تسليم عهدة شخصية"
-          description="اختر الموظف، راجع المواد المتاحة في غرفته، اعتمد السند ثم انتقل مباشرة إلى الطباعة."
-          action="إنشاء سند تسليم"
-          tone="emerald"
-        />
-        <TaskCard
-          href="/custody?mode=employees"
-          number="3"
-          title="عرض أو إرجاع عهدة موظف"
-          description="اعرف ما هو مسجل على كل موظف، ثم أرجع جزءًا من العهدة أو كلها عند الحاجة."
-          action="فتح العهد الحالية"
-          tone="amber"
-        />
-        <TaskCard
-          href="/items"
-          number="4"
-          title="البحث عن مادة"
-          description="ابحث برقم المادة أو اسمها واعرف رصيدها ومكانها وكل ما يتعلق بها من حركة."
-          action="فتح سجل المواد"
-          tone="slate"
-        />
-      </section>
-
-      <section>
-        <div className="mb-3">
-          <h3 className="text-lg font-extrabold text-slate-900">ملخص سريع</h3>
-          <p className="mt-1 text-xs text-slate-500">للمراجعة فقط؛ لا تحتاج هذه الأرقام لتنفيذ المهام الرئيسية.</p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <Stat title="إجمالي القطع الحالية" value={currentTotal} />
-          <Stat title="المواد" value={itemCount} />
-          <Stat title="الغرف والمواقع" value={locationCount} />
-          <Stat title="الموظفون" value={employeeCount} />
-          <Stat title="المسودات غير المكتملة" value={draftCount} note={`من أصل ${documentCount} سندًا`} />
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="text-lg font-extrabold text-slate-900">إدارة وسجلات</h3>
-        <p className="mt-1 text-xs text-slate-500">هذه الخيارات أقل استخدامًا في العمل اليومي.</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          <Link href="/employees" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-bold text-slate-700 hover:bg-slate-100">الموظفون</Link>
-          <Link href="/locations" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-bold text-slate-700 hover:bg-slate-100">الغرف والمواقع</Link>
-          <Link href="/documents/new?type=receipt" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-bold text-slate-700 hover:bg-slate-100">سند إدخال</Link>
-          <Link href="/documents/new?type=issue" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-bold text-slate-700 hover:bg-slate-100">سند إخراج</Link>
-          <Link href="/documents" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-bold text-slate-700 hover:bg-slate-100">كل السندات</Link>
-          <Link href="/reports" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-bold text-slate-700 hover:bg-slate-100">التقارير</Link>
-        </div>
-      </section>
-    </div>
-  );
+  return <div className="mx-auto max-w-7xl space-y-6">
+    <section className="rounded-3xl bg-slate-950 p-7 text-white shadow-lg md:p-10">
+      <p className="text-sm font-bold text-teal-300">نظام إدارة العهدة • {center.name}</p>
+      <h1 className="mt-3 text-3xl font-black md:text-4xl">أين موجود كل غرض؟</h1>
+      <p className="mt-3 max-w-3xl text-sm leading-8 text-slate-200">من هنا تستطيع معرفة كل مادة وغرفتها، جرد كل غرفة، تحديد مكان المفقود، ثم إنشاء سند عهدة الموظف من المواد التي تم اعتمادها.</p>
+      <Link href="/locations" className="mt-6 inline-block rounded-xl bg-teal-500 px-7 py-3.5 font-extrabold text-white hover:bg-teal-600">فتح الغرف والبدء بالجرد</Link>
+    </section>
+    {!authEnabled() && <section className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-bold text-amber-950">تنبيه: اضبط رمز دخول قبل تمكين أجهزة أخرى على الشبكة أو عبر الإنترنت.</section>}
+    <section className="grid gap-3 sm:grid-cols-4">
+      {[["المواد", itemsCount], ["الغرف", roomsCount], ["إجمالي القطع", total], ["بانتظار تحديد موقعها", unknown]].map(([label, count]) => <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">{label}</p><strong className="mt-2 block text-3xl font-black text-slate-900">{count}</strong></div>)}
+    </section>
+    <section className="grid gap-4 lg:grid-cols-3">
+      {routes.map((route) => <Link href={route.href} key={route.href} className="group flex min-h-56 flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-400 hover:shadow-lg">
+        <span className="text-sm font-black text-teal-700">{route.number}</span>
+        <h2 className="mt-3 text-2xl font-extrabold text-slate-950">{route.title}</h2>
+        <p className="mt-3 flex-1 text-sm leading-7 text-slate-600">{route.text}</p>
+        <span className={`mt-5 rounded-xl ${route.color} px-4 py-3 text-center text-sm font-bold text-white`}>{route.action}</span>
+      </Link>)}
+    </section>
+    <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+      <div><p className="text-xs font-bold text-emerald-700">الخطوة بعد انتهاء الجرد</p><h2 className="mt-1 text-xl font-black text-slate-950">طباعة سند عهدة الموظف</h2>
+        <p className="mt-2 text-sm text-slate-600">اختر الموظف بعد اعتماد حركات الجرد، واطبع سند التسليم بالقالب نفسه الذي تم الاتفاق عليه.</p></div>
+      <Link href="/custody/new" className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-extrabold text-white">إنشاء سند عهدة</Link>
+    </section>
+    <details className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <summary className="cursor-pointer text-sm font-extrabold text-slate-800">الإدارة والإعدادات والسندات القديمة</summary>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {[["الموظفون", "/employees"], ["تعديل الغرف", "/locations/manage"], ["سندات الإدخال والإخراج", "/documents"], ["العهد الحالية", "/custody?mode=employees"], ["التقارير", "/reports"], ["ملصقات QR", "/labels"]].map(([label, href]) => <Link key={href} href={href} className="rounded-lg border bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700">{label}</Link>)}
+      </div>
+      <p className="mt-3 text-xs text-slate-500">الموظفون المسجلون: {employeesCount}</p>
+    </details>
+    {showPhoneAccess && <details className="rounded-2xl border bg-white p-5">
+      <summary className="cursor-pointer text-sm font-extrabold">الوصول من الهاتف على شبكة المكتب</summary>
+      <div className="mt-4 flex flex-wrap items-center gap-4"><div className="w-36 [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: lanQr }}/><div><p dir="ltr" className="font-mono text-sm">{lanUrl}</p><p className="text-xs">رمز الدخول يظهر في برنامج ويندوز فقط.</p></div></div>
+    </details>}
+  </div>;
 }

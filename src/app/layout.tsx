@@ -21,26 +21,27 @@ export const viewport: Viewport = {
 
 const operationLinks = [
   { href: "/", label: "الرئيسية" },
-  { href: "/stocktake", label: "جرد غرفة" },
-  { href: "/custody/new", label: "تسليم عهدة شخصية" },
-  { href: "/custody?mode=employees", label: "العهد الحالية" },
-  { href: "/items", label: "المواد" },
-  { href: "/reports", label: "التقارير" },
+  { href: "/locations", label: "الغرف والجرد" },
+  { href: "/items", label: "جميع المواد وأماكنها" },
+  { href: "/locations/unlocated", label: "غير محدد الموقع" },
+  { href: "/custody/new", label: "سند عهدة الموظف" },
 ];
 
 const masterDataLinks = [
   { href: "/employees", label: "الموظفون" },
-  { href: "/locations", label: "الغرف والمواقع" },
-  { href: "/documents", label: "كل السندات" },
+  { href: "/locations/manage", label: "إضافة وتعديل الغرف" },
+  { href: "/documents", label: "السندات والحركات" },
+  { href: "/reports", label: "التقارير" },
+  { href: "/custody?mode=employees", label: "العهد الحالية" },
   { href: "/labels", label: "ملصقات QR" },
 ];
 
 const mobileLinks = [
   { href: "/", label: "الرئيسية" },
-  { href: "/stocktake", label: "الجرد" },
-  { href: "/custody/new", label: "تسليم عهدة" },
-  { href: "/custody?mode=employees", label: "العهد" },
+  { href: "/locations", label: "الغرف" },
   { href: "/items", label: "المواد" },
+  { href: "/locations/unlocated", label: "موقع مجهول" },
+  { href: "/custody/new", label: "العهدة" },
 ];
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
