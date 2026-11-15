@@ -36,9 +36,8 @@ export function planRoomAudit(
         !Number.isInteger(line.assignedQuantity) || line.assignedQuantity < 0) {
       throw new Error("الكمية يجب أن تكون عدداً صحيحاً غير سالب");
     }
-    if (line.actualQuantity < line.assignedQuantity) {
-      throw new Error("لا يمكن تغيير موقع قطعة مسجلة في عهدة موظف قبل إرجاعها رسمياً");
-    }
+    // A room audit establishes the physical location. Custody releases for
+    // relocated pieces are documented and posted atomically with the transfer.
     const delta = line.actualQuantity - line.systemQuantity;
     if (delta < 0) {
       if (!line.destinationId || line.destinationId === locationId)

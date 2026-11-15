@@ -6,8 +6,9 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentCenter } from "@/lib/current-center";
 import { getCenterInventoryBalances } from "@/lib/inventory-query";
-import { getAssignedCustodyTotalsAtLocation } from "@/lib/custody-query";
+import { getAssignedCustodyTotalsAtLocation, getCustodyHoldersForAudit } from "@/lib/custody-query";
 import { NEW_STOCK, UNLOCATED, planRoomAudit, type AuditFound, type AuditKnown } from "@/lib/room-audit-plan";
+import { planAuditCustodyReturns } from "@/lib/room-audit-custody";
 
 function strings(data: FormData, key: string) {
   return data.getAll(key).map((value) => typeof value === "string" ? value.trim() : "");
@@ -85,26 +86,40 @@ export async function saveRoomAudit(data: FormData) {
   }
   const locationIds = new Set(locations.map((location) => location.id));
   const unlocated = locations.find((location) => location.code === UNLOCATED);
-  const availableBySource = new Map<string, number>();
+  const availableBySource = new Map<string, { itemId: string; locationId: string; quantity: number }>();
   for (const op of operations) {
     if (op.to !== UNLOCATED && !locationIds.has(op.to))
       throw new Error("الغرفة المحددة كوجهة لم تعد موجودة");
     if (op.from && !locationIds.has(op.from))
       throw new Error("الموقع المحدد كمصدر غير صالح");
     if (op.to === op.from) throw new Error("لا يمكن نقل المادة داخل الغرفة نفسها");
-    if (op.from && op.from !== roomId) {
-      const key = `${op.itemId}:${op.from}`;
-      availableBySource.set(key, (availableBySource.get(key) ?? 0) + op.quantity);
+    if (op.from) {
+      const key = `${op.itemId}\u0000${op.from}`;
+      const previous = availableBySource.get(key);
+      availableBySource.set(key, {
+        itemId: op.itemId,
+        locationId: op.from,
+        quantity: (previous?.quantity ?? 0) + op.quantity,
+      });
     }
   }
-  for (const [key, need] of availableBySource) {
-    const sep = key.lastIndexOf(":");
-    const itemId = key.slice(0, sep);
-    const sourceId = key.slice(sep + 1);
-    const stored = balances.itemLocationTotals.get(itemId)?.get(sourceId) ?? 0;
-    const entrusted = (await getAssignedCustodyTotalsAtLocation(sourceId)).get(itemId) ?? 0;
-    if (stored - entrusted < need)
-      throw new Error(`كمية المادة المتاحة للنقل من الموقع المصدر هي ${stored - entrusted} فقط. يجب معالجة العهدة أولاً.`);
+  const sourceRows = [...availableBySource.values()];
+  const holders = await getCustodyHoldersForAudit(
+    [...new Set(sourceRows.map((source) => source.locationId))],
+    [...new Set(sourceRows.map((source) => source.itemId))],
+  );
+  const plannedReturns = planAuditCustodyReturns(operations, sourceRows.map((source) => ({
+    itemId: source.itemId,
+    locationId: source.locationId,
+    physical: balances.itemLocationTotals.get(source.itemId)?.get(source.locationId) ?? 0,
+    holders: holders.get(`${source.itemId}\u0000${source.locationId}`) ?? [],
+  })));
+  if (plannedReturns.length) {
+    const employees = await prisma.employee.count({
+      where: { centerId: center.id, id: { in: [...new Set(plannedReturns.map((entry) => entry.employeeId))] } },
+    });
+    if (employees !== new Set(plannedReturns.map((entry) => entry.employeeId)).size)
+      throw new Error("لا يمكن تسوية عهدة مرتبطة بموظف خارج المركز");
   }
 
   if (operations.length === 0) {
@@ -134,6 +149,44 @@ export async function saveRoomAudit(data: FormData) {
       unlocatedId = record.id;
     }
     const ids: string[] = [];
+    // Stage custody releases before transfers: every release and transfer
+    // gets the same audit reference and is later posted in ONE transaction.
+    const returnGroups = new Map<string, typeof plannedReturns>();
+    for (const entry of plannedReturns) {
+      const key = `${entry.locationId}\u0000${entry.employeeId}`;
+      returnGroups.set(key, [...(returnGroups.get(key) ?? []), entry]);
+    }
+    for (const lines of returnGroups.values()) {
+      const first = lines[0];
+      const roomLabel = locations.find((location) => location.id === first.locationId)?.name ?? "الموقع المصدر";
+      const doc = await tx.inventoryDocument.create({
+        data: {
+          centerId: center.id,
+          documentType: "RETURN",
+          documentNo: `${reference}-${ids.length + 1}`,
+          documentDate: new Date(),
+          fromLocationId: first.locationId,
+          toLocationId: first.locationId,
+          employeeId: first.employeeId,
+          statement: `إرجاع عهدة لتصحيح موقع مواد ثبت انتقالها عند جرد ${room.name}`,
+          notes: `محضر تسوية عهدة ${roomLabel} ضمن الجرد ${reference}؛ يتطلب توثيق توقيع المسؤول، ولا يعني الإقرار باستلام فعلي جديد.`,
+          lines: { create: lines.map((line, index) => {
+            const item = itemMap.get(line.itemId)!;
+            return {
+              lineNo: index + 1,
+              itemId: item.id,
+              quantity: line.quantity,
+              itemCodeSnapshot: item.itemCode,
+              itemNameSnapshot: item.name,
+              unitNameSnapshot: item.unit?.name ?? null,
+              ledgerPageNo: item.legacyLedgerPageNo,
+              notes: "تسوية عهدة عند جرد موقع مغاير",
+            };
+          }) },
+        },
+      });
+      ids.push(doc.id);
+    }
     for (const [key, lines] of groups) {
       const first = lines[0];
       const fromId = first.from;

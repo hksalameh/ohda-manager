@@ -10,6 +10,7 @@ on:
       - "src/**"
       - "prisma/**"
       - "scripts/smoke-windows-package.ps1"
+      - "scripts/test-room-audit*.ts"
       - "package.json"
       - "package-lock.json"
       - "next.config.ts"
@@ -20,6 +21,7 @@ on:
       - "src/**"
       - "prisma/**"
       - "scripts/smoke-windows-package.ps1"
+      - "scripts/test-room-audit*.ts"
       - "package.json"
       - "package-lock.json"
       - "next.config.ts"
@@ -50,6 +52,15 @@ jobs:
 
       - name: Generate Prisma client for Windows
         run: npm run db:generate
+
+      - name: Verify room-audit custody reconciliation on isolated database
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory .tmp -Force | Out-Null
+          $env:DATABASE_URL = 'file:../.tmp/audit-validation.db'
+          npx prisma db push --schema prisma/schema.prisma --skip-generate
+          npx tsx scripts/test-room-audit.ts
+          npx tsx scripts/test-room-audit-posting.ts
 
       - name: Build web backend bundled into desktop app
         run: npm run build

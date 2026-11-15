@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { NEW_STOCK, UNLOCATED, planRoomAudit, type AuditKnown } from "../src/lib/room-audit-plan.ts";
+import { planAuditCustodyReturns } from "../src/lib/room-audit-custody.ts";
 import { currentCustodyAtRoom } from "../src/lib/custody-snapshot.ts";
 import { CUSTODY_ROWS_PER_PAGE, paginateCustodyRows } from "../src/lib/custody-print-pagination.ts";
 
@@ -25,7 +26,18 @@ assert.deepEqual(planRoomAudit(A, [], [{ itemId: "TABLE", quantity: 2, sourceId:
 assert.deepEqual(planRoomAudit(A, [], [{ itemId: "NEW_ITEM", quantity: 2, sourceId: NEW_STOCK }]), [
   { itemId: "NEW_ITEM", quantity: 2, from: null, to: A, kind: "INCREASE" },
 ]);
-assert.throws(() => planRoomAudit(A, [{ ...base, actualQuantity: 0, assignedQuantity: 1 }], []), /عهدة موظف/);
+const entrustedMove = planRoomAudit(A, [{ ...base, actualQuantity: 0, destinationId: B }], []);
+assert.deepEqual(entrustedMove, [{ itemId: "CHAIR", quantity: 5, from: A, to: B, kind: "TRANSFER" }]);
+assert.deepEqual(planAuditCustodyReturns(entrustedMove, [{ itemId: "CHAIR", locationId: A, physical: 5, holders: [{ employeeId: "EMP", quantity: 1 }] }]), [
+  { itemId: "CHAIR", locationId: A, employeeId: "EMP", quantity: 1 },
+], "a moved entrusted item must create an automatic custody correction");
+assert.deepEqual(planAuditCustodyReturns(transfers, [{ itemId: "CHAIR", locationId: A, physical: 5, holders: [{ employeeId: "EMP", quantity: 1 }] }]), [], "unassigned stock transfers without changing employee custody");
+assert.deepEqual(planAuditCustodyReturns([{ ...entrustedMove[0], quantity: 4 }], [{ itemId: "CHAIR", locationId: A, physical: 5, holders: [{ employeeId: "EMP2", quantity: 2 }, { employeeId: "EMP1", quantity: 1 }] }]), [
+  { itemId: "CHAIR", locationId: A, employeeId: "EMP1", quantity: 1 },
+  { itemId: "CHAIR", locationId: A, employeeId: "EMP2", quantity: 1 },
+], "return only the required entrusted portion, in stable employee order");
+assert.throws(() => planAuditCustodyReturns(entrustedMove, [{ itemId: "CHAIR", locationId: A, physical: 4, holders: [] }]), /المتاحة/);
+assert.throws(() => planAuditCustodyReturns(entrustedMove, [{ itemId: "CHAIR", locationId: A, physical: 5, holders: [{ employeeId: "EMP", quantity: 6 }] }]), /تطابق/);
 assert.throws(() => planRoomAudit(A, [{ ...base, destinationId: "" }], []), /حدد مكان/);
 assert.throws(() => planRoomAudit(A, [{ ...base, destinationId: A }], []), /حدد مكان/);
 assert.throws(() => planRoomAudit(A, [{ ...base, actualQuantity: 7, surplusSourceId: "" }], []), /مصدر/);

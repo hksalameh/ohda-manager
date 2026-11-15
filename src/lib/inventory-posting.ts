@@ -333,12 +333,14 @@ export async function postRoomAuditBatch(documentIds: string[], centerId: string
   return prisma.$transaction(async (tx) => {
     const documents = await tx.inventoryDocument.findMany({
       where: { id: { in: documentIds }, centerId },
-      select: { id: true, documentNo: true, status: true, documentType: true, fromLocationId: true, toLocationId: true },
+      select: { id: true, documentNo: true, status: true, documentType: true, fromLocationId: true, toLocationId: true, employeeId: true, lines: { select: { itemId: true, quantity: true } } },
     });
     if (documents.length !== documentIds.length || documents.some((doc) =>
       doc.status !== DocumentStatus.DRAFT ||
-      (doc.documentType !== DocumentType.TRANSFER && doc.documentType !== DocumentType.ADJUSTMENT) ||
-      (doc.fromLocationId !== roomId && doc.toLocationId !== roomId) ||
+      (doc.documentType !== DocumentType.TRANSFER && doc.documentType !== DocumentType.ADJUSTMENT && doc.documentType !== DocumentType.RETURN) ||
+      (doc.documentType === DocumentType.RETURN
+        ? !doc.employeeId || !doc.fromLocationId || doc.fromLocationId !== doc.toLocationId
+        : doc.fromLocationId !== roomId && doc.toLocationId !== roomId) ||
       !/^JRD-\d{8}-[a-f0-9]{8}-\d+$/.test(doc.documentNo ?? ""),
     )) throw new Error("مستندات الجرد غير مكتملة أو غير مرتبطة بهذه الغرفة");
     const refs = new Set(documents.map((doc) => doc.documentNo!.replace(/-\d+$/, "")));
@@ -351,8 +353,26 @@ export async function postRoomAuditBatch(documentIds: string[], centerId: string
     if (allBatch.length !== documentIds.length || allBatch.some((doc) => !documentIds.includes(doc.id))) {
       throw new Error("يجب اعتماد كامل مستندات هذا الجرد دون استثناء");
     }
+    // A custody release must belong to a physical transfer in THIS audit;
+    // prevent an unrelated employee's holdings from being released by forged ids.
+    const outbound = new Map<string, number>();
+    const released = new Map<string, number>();
+    for (const document of documents) {
+      if (document.documentType !== DocumentType.TRANSFER && document.documentType !== DocumentType.RETURN) continue;
+      for (const line of document.lines) {
+        const key = `${line.itemId}\u0000${document.fromLocationId}`;
+        const target = document.documentType === DocumentType.RETURN ? released : outbound;
+        target.set(key, (target.get(key) ?? 0) + line.quantity);
+      }
+    }
+    if ([...released].some(([key, quantity]) => quantity > (outbound.get(key) ?? 0)))
+      throw new Error("محاضر تسوية العهدة غير مرتبطة بكميات نقل مثبتة في الجرد");
+    // Release the employee custody BEFORE moving the stock. All-or-nothing.
+    const orderedIds = [...documents].sort((a, b) =>
+      Number(b.documentType === DocumentType.RETURN) - Number(a.documentType === DocumentType.RETURN),
+    ).map((doc) => doc.id);
     const posted = [];
-    for (const id of documentIds) posted.push(await postInventoryDocumentInTransaction(tx, id, true));
+    for (const id of orderedIds) posted.push(await postInventoryDocumentInTransaction(tx, id, true));
     return posted;
   }, { timeout: 20000 });
 }

@@ -98,12 +98,10 @@ export default function AuditForm({ roomId, roomName, known, allItems, locations
     const wrongDestination = missingRows.find((item) => !destinations[item.id]);
     const missingSource = known.find((item) => Number(counts[item.id]) > item.system && !sources[item.id]);
     const needsExtraSource = extras.find((item) => !item.source || Number(item.quantity) <= 0);
-    const invalidCustody = known.find((item) => counts[item.id] !== "" && counts[item.id] !== undefined && Number(counts[item.id]) < item.assigned);
-    if (unfinished || wrongDestination || missingSource || needsExtraSource || invalidCustody) {
+    if (unfinished || wrongDestination || missingSource || needsExtraSource) {
       e.preventDefault();
       setValidation(
         unfinished ? `لم تُجرَد المادة: ${unfinished.name}. اضغط «مطابق» أو أدخل العدد الموجود.`
-        : invalidCustody ? `المادة ${invalidCustody.name} مسجلة بعهدة موظف. عالج العهدة قبل نقلها.`
         : wrongDestination ? `حدد وجهة المادة المفقودة: ${wrongDestination.name}.`
         : missingSource ? `حدد مصدر الكمية الزائدة: ${missingSource.name}.`
         : "اختر مصدر كل مادة أضفتها وتحقق من الكمية.",
@@ -111,7 +109,7 @@ export default function AuditForm({ roomId, roomName, known, allItems, locations
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    if (!window.confirm("سيتم إنشاء مسودات الحركات للمراجعة فقط، ولن تتغير الأرصدة حتى الاعتماد. هل تريد المتابعة؟"))
+    if (!window.confirm("سيجهّز البرنامج سندات النقل ومحاضر تسوية العهدة المرتبطة بها تلقائياً. لن تتغير الأرصدة حتى اعتماد الجرد. متابعة؟"))
       e.preventDefault();
   }
   const actionable = known.length === completed;
@@ -177,8 +175,8 @@ export default function AuditForm({ roomId, roomName, known, allItems, locations
                 <option value="UNLOCATED">لم أحدد مكانها بعد — غير محدد الموقع</option>
                 {locations.filter((location) => location.id !== roomId && location.code !== "UNLOCATED").map((room) => <option key={room.id} value={room.id}>نقل إلى {room.name}</option>)}
               </select>
-              {actual !== null && actual < item.assigned ? <p className="mt-2 text-sm font-bold text-red-700">لا يمكن نقل {item.assigned - actual} قطعة مرتبطة بعهدة موظف. <Link href={`/custody?mode=rooms&locationId=${roomId}`} className="underline">افتح العهدة وسجّل الإرجاع أولاً</Link>.</p> : null}
-              <p className="mt-2 text-xs text-amber-900">لن تُحذف القطعة من المخزون. النقل يصبح فعليًا بعد اعتماد المسودة.</p>
+              {actual !== null && actual < item.assigned ? <p className="mt-2 text-sm font-bold text-teal-800">هذه المادة مسجلة بعهدة موظف. سيُجهّز البرنامج محضر تسوية للعهدة القديمة تلقائياً مع سند النقل، دون تعطيل الجرد.</p> : null}
+              <p className="mt-2 text-xs text-amber-900">لن تُحذف القطعة من المخزون. سينتقل رصيدها إلى الغرفة المختارة بعد اعتماد الجرد، مع سجل حركة قابل للطباعة.</p>
             </div>}
             {delta > 0 && <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
               <p className="text-sm font-bold text-blue-950">مصدر {delta} قطعة زائدة</p>
@@ -229,7 +227,7 @@ export default function AuditForm({ roomId, roomName, known, allItems, locations
     </section>
     <section className="rounded-2xl border border-teal-200 bg-teal-50 p-5">
       <h3 className="text-base font-extrabold text-teal-950">ماذا يحدث عند إنهاء الجرد؟</h3>
-      <p className="mt-2 text-sm leading-7 text-teal-950">سيُنشئ البرنامج حركات نقل أو إضافة <strong>كمسودات فقط</strong>. راجعها واعتمدها ليُحدّث الرصيد، ثم ارجع إلى الغرفة واضغط «تسليم عهدة الموظف» لإنشاء السند وطباعته بالقالب المعتمد نفسه. للمشتريات والتبرعات لمادة موجودة استخدم <Link href="/documents/new?type=receipt" className="font-bold underline">سند إدخال</Link>.</p>
+      <p className="mt-2 text-sm leading-7 text-teal-950">سيُجهّز البرنامج <strong>سندات النقل ومحاضر تصحيح عهدة الموظفين عند الحاجة</strong> معًا، ثم تعتمدها بضغطة واحدة وتطبع سند نقل المواد للغرفة المستلمة. لا يتم تغيير الرصيد قبل اعتماد الجرد. أما سند العهدة الشخصية للمستلم فيُطبع من الغرفة بعد تحديد الموظف. للمشتريات والتبرعات استخدم <Link href="/documents/new?type=receipt" className="font-bold underline">سند إدخال</Link>.</p>
       <div className="mt-4"><SaveButton ready={actionable && ready}/></div>
     </section>
   </form>;

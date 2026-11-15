@@ -32,7 +32,7 @@ export async function approveRoomAudit(data: FormData) {
   revalidatePath(`/locations/${roomId}`);
   revalidatePath("/items");
   revalidatePath("/documents");
-  redirect(`/locations/${roomId}?audit=approved`);
+  redirect(`/locations/${roomId}/audit/review?ids=${ids.join(",")}&posted=1`);
 }
 
 /** Cancel a complete unposted audit without ever touching inventory balances. */
@@ -45,10 +45,12 @@ export async function cancelRoomAudit(data: FormData) {
     if (!room || room.code === "UNLOCATED") throw new Error("الغرفة غير صالحة");
     const docs = await tx.inventoryDocument.findMany({
       where: { id: { in: ids }, centerId: center.id },
-      select: { id: true, documentNo: true, status: true, fromLocationId: true, toLocationId: true },
+      select: { id: true, documentNo: true, status: true, documentType: true, fromLocationId: true, toLocationId: true, employeeId: true },
     });
     if (docs.length !== ids.length || docs.some((doc) => doc.status !== "DRAFT" ||
-       (doc.fromLocationId !== roomId && doc.toLocationId !== roomId) ||
+       (doc.documentType === "RETURN"
+         ? !doc.employeeId || !doc.fromLocationId || doc.fromLocationId !== doc.toLocationId
+         : doc.fromLocationId !== roomId && doc.toLocationId !== roomId) ||
        !/^JRD-\d{8}-[a-f0-9]{8}-\d+$/.test(doc.documentNo ?? ""))) {
       throw new Error("تعذر إلغاء المسودات؛ يجب أن يكون الجرد كاملاً وغير معتمد");
     }

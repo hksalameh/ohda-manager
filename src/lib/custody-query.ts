@@ -78,3 +78,43 @@ export async function getAssignedCustodyTotalsAtLocation(locationId: string): Pr
 
   return new Map([...totals.entries()].filter(([, quantity]) => quantity > 0));
 }
+
+/** Positive employee holdings by item and room, for room-audit reconciliation. */
+export async function getCustodyHoldersForAudit(locationIds: string[], itemIds: string[]) {
+  const result = new Map<string, { employeeId: string; quantity: number }[]>();
+  if (!locationIds.length || !itemIds.length) return result;
+  const movements = await prisma.inventoryMovement.findMany({
+    where: {
+      itemId: { in: itemIds },
+      OR: [
+        { toLocationId: { in: locationIds }, toEmployeeId: { not: null } },
+        { fromLocationId: { in: locationIds }, fromEmployeeId: { not: null } },
+      ],
+    },
+    select: {
+      itemId: true, quantity: true,
+      fromEmployeeId: true, toEmployeeId: true,
+      fromLocationId: true, toLocationId: true,
+    },
+  });
+  const holdings = new Map<string, Map<string, number>>();
+  const change = (itemId: string, locationId: string, employeeId: string, quantity: number) => {
+    const key = `${itemId}\u0000${locationId}`;
+    const employees = holdings.get(key) ?? new Map<string, number>();
+    employees.set(employeeId, (employees.get(employeeId) ?? 0) + quantity);
+    holdings.set(key, employees);
+  };
+  for (const movement of movements) {
+    if (movement.toEmployeeId && movement.toLocationId)
+      change(movement.itemId, movement.toLocationId, movement.toEmployeeId, movement.quantity);
+    if (movement.fromEmployeeId && movement.fromLocationId)
+      change(movement.itemId, movement.fromLocationId, movement.fromEmployeeId, -movement.quantity);
+  }
+  for (const [key, employees] of holdings) {
+    if ([...employees.values()].some((quantity) => quantity < 0))
+      throw new Error("توجد عهدة موظف برصيد سالب؛ يلزم مراجعة سجل الحركات قبل نقل المادة");
+    result.set(key, [...employees].filter(([, quantity]) => quantity > 0)
+      .map(([employeeId, quantity]) => ({ employeeId, quantity })));
+  }
+  return result;
+}
