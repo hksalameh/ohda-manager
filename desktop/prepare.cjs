@@ -70,6 +70,7 @@ function stageDesktopApplication() {
   fs.mkdirSync(serverDir, { recursive: true });
 
   fs.copyFileSync(path.join(__dirname, "main.cjs"), path.join(appDir, "main.cjs"));
+  fs.copyFileSync(path.join(__dirname, "preload.cjs"), path.join(appDir, "preload.cjs"));
   fs.copyFileSync(path.join(__dirname, "icon.png"), path.join(appDir, "icon.png"));
   copyDir(standalone, serverDir);
   const stagedNodeModules = path.join(serverDir, "node_modules");

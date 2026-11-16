@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentCenter } from "@/lib/current-center";
+import { setPrimaryEmployeeRoomInTransaction } from "@/lib/employee-room-assignments";
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -37,11 +38,8 @@ export async function updateEmployeeProfile(formData: FormData) {
   const currentLocationId = employee.locationAssignments[0]?.locationId ?? null;
   await prisma.$transaction(async (tx) => {
     await tx.employee.update({ where: { id: employeeId }, data: { fullName, employeeNo, jobTitle } });
-    if (currentLocationId !== locationId) {
-      const now = new Date();
-      await tx.employeeLocationAssignment.updateMany({ where: { employeeId, isPrimary: true, endsAt: null }, data: { endsAt: now } });
-      if (locationId) await tx.employeeLocationAssignment.create({ data: { employeeId, locationId, startsAt: now, isPrimary: true } });
-    }
+    if (locationId && currentLocationId !== locationId)
+      await setPrimaryEmployeeRoomInTransaction(tx, { centerId: center.id, employeeId, locationId });
   });
   revalidatePath("/custody");
   revalidatePath("/employees");
@@ -54,6 +52,8 @@ export async function updateLocationProfile(formData: FormData) {
   const code = text(formData, "code") || null;
   const type = text(formData, "type");
   if (!locationId || !name) throw new Error("اسم الغرفة مطلوب");
+  if (code === "UNLOCATED" || name === "مواد غير محددة الموقع")
+    throw new Error("هذا الاسم والرمز محجوزان لموقع المتابعة الافتراضي");
   if (!["ROOM","OFFICE","DEPARTMENT","STORE","HALL","OTHER"].includes(type)) throw new Error("نوع الموقع غير صالح");
 
   const center = await getCurrentCenter();
@@ -61,9 +61,10 @@ export async function updateLocationProfile(formData: FormData) {
 
   const location = await prisma.location.findFirst({
     where: { id: locationId, centerId: center.id, active: true },
-    select: { id: true },
+    select: { id: true, code: true },
   });
   if (!location) throw new Error("الغرفة غير موجودة في المركز الحالي");
+  if (location.code === "UNLOCATED") throw new Error("لا يمكن تغيير موقع المتابعة الافتراضي");
 
   const duplicate = await prisma.location.findFirst({
     where: { centerId: center.id, name, id: { not: locationId } },

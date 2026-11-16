@@ -10,6 +10,7 @@ import {
   getEmployeeItemBalanceAtLocation,
   getLocationItemBalance,
   postInventoryDocument,
+  postRoomAuditBatch,
 } from "../src/lib/inventory-posting";
 
 const prisma = new PrismaClient();
@@ -140,6 +141,22 @@ async function main() {
   }
   assert(custodyRejected, "يجب رفض عهدة أكبر من الكمية غير المعهود بها في الغرفة");
 
+  // A room contains 3 pieces but 2 are in the employee's custody.
+  // Moving 2 pieces must be rejected even though the total stock is 3.
+  const transferEntrusted = await createDocument({
+    centerId: center.id,
+    type: DocumentType.TRANSFER,
+    fromLocationId: room.id,
+    toLocationId: store.id,
+    itemId: item.id,
+    quantity: 2,
+    no: "TR-ASSIGNED-OVER",
+  });
+  let assignedTransferRejected = false;
+  try { await postInventoryDocument(transferEntrusted.id); } catch { assignedTransferRejected = true; }
+  assert(assignedTransferRejected, "يجب منع نقل الكمية المعهودة لموظف إلى غرفة أخرى");
+  assert((await getLocationItemBalance(item.id, room.id)) === 3, "فشل النقل يجب ألا يغيّر رصيد الغرفة");
+
   const returnDoc = await createDocument({
     centerId: center.id,
     type: DocumentType.RETURN,
@@ -208,6 +225,42 @@ async function main() {
     issueRejected = true;
   }
   assert(issueRejected, "يجب رفض إخراج كمية أكبر من الرصيد");
+
+  const unlocated = await prisma.location.create({
+    data: { centerId: center.id, name: "مواد غير محددة الموقع", code: "UNLOCATED", type: LocationType.OTHER },
+  });
+  const auditRef = "JRD-20261115-abcdef12";
+  const firstMove = await createDocument({
+    centerId: center.id, type: DocumentType.TRANSFER,
+    fromLocationId: store.id, toLocationId: room.id,
+    itemId: item.id, quantity: 1, no: auditRef + "-1",
+  });
+  const secondMove = await createDocument({
+    centerId: center.id, type: DocumentType.TRANSFER,
+    fromLocationId: room.id, toLocationId: unlocated.id,
+    itemId: item.id, quantity: 3, no: auditRef + "-2",
+  });
+  let individualRejected = false;
+  try { await postInventoryDocument(firstMove.id); } catch { individualRejected = true; }
+  assert(individualRejected, "يجب منع اعتماد حركة واحدة من الجرد منفردة");
+  let partialRejected = false;
+  try { await postRoomAuditBatch([firstMove.id], center.id, room.id); } catch { partialRejected = true; }
+  assert(partialRejected, "يجب رفض اعتماد جزء من مسودات الجرد");
+  let rolledBack = false;
+  try { await postRoomAuditBatch([firstMove.id, secondMove.id], center.id, room.id); } catch { rolledBack = true; }
+  assert(rolledBack, "يجب رفض دفعة الجرد عند محاولة نقل مادة معهود بها");
+  assert((await getLocationItemBalance(item.id, store.id)) === 5, "إخفاق اعتماد الجرد يجب ألا يغير رصيد المستودع");
+  assert((await getLocationItemBalance(item.id, room.id)) === 2, "إخفاق اعتماد الجرد يجب ألا يغير رصيد الغرفة");
+  assert((await getLocationItemBalance(item.id, unlocated.id)) === 0, "إخفاق اعتماد الجرد يجب ألا يغير رصيد غير محدد الموقع");
+  assert((await prisma.inventoryDocument.findUnique({ where: { id: firstMove.id } }))?.status === DocumentStatus.DRAFT, "لا يجوز اعتماد جزء من الجرد");
+
+  await prisma.inventoryDocumentLine.updateMany({ where: { documentId: secondMove.id }, data: { quantity: 1 } });
+  const approved = await postRoomAuditBatch([firstMove.id, secondMove.id], center.id, room.id);
+  assert(approved.length === 2 && approved.every((doc) => doc.status === DocumentStatus.POSTED), "يجب اعتماد كل سندات الجرد معاً");
+  assert((await getLocationItemBalance(item.id, store.id)) === 4, "نقل من المستودع لم يطبق كما ينبغي");
+  assert((await getLocationItemBalance(item.id, room.id)) === 2, "بعد النقل يجب أن يبقى رصيد الغرفة مطابقاً");
+  assert((await getLocationItemBalance(item.id, unlocated.id)) === 1, "يجب تتبع القطعة غير محددة الموقع");
+  assert((await getEmployeeItemBalanceAtLocation(employee.id, item.id, room.id)) === 1, "يجب الحفاظ على عهدة الموظف بعد الجرد");
 
   console.log("نجحت اختبارات ترحيل حركات المخزون والعهدة والتسويات.");
 }

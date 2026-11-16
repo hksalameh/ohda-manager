@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { DocumentStatus, DocumentType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PrintButton } from "./print-button";
+import { CUSTODY_ROWS_PER_PAGE, paginateCustodyRows } from "@/lib/custody-print-pagination";
 
 export const dynamic = "force-dynamic";
 
@@ -38,8 +39,9 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
   }
 
   if (document.documentType === DocumentType.CUSTODY) {
-    const rowsPerPage = 23;
-    const pages = chunk(document.lines, rowsPerPage);
+    // The official sheet already has space for 24 rows; avoid a lone 24th row on page two.
+    const rowsPerPage = CUSTODY_ROWS_PER_PAGE;
+    const pages = paginateCustodyRows(document.lines);
     const centerName = document.centerNameSnapshot ?? document.center.name;
     const employeeName = document.employeeNameSnapshot ?? document.employee?.fullName ?? "";
     const d = document.documentDate;
@@ -105,7 +107,7 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
                 <thead><tr><th>رقم المادة</th><th>المـــــــادة</th><th>الكمية</th></tr></thead>
                 <tbody>
                   {lines.map((line) => <tr key={line.id}><td className="code">{line.itemCodeSnapshot ?? ""}</td><td className="name">{line.itemNameSnapshot}</td><td className="qty">{line.quantity}</td></tr>)}
-                  {Array.from({ length: Math.max(0, 24 - lines.length) }).map((_, index) => <tr key={`empty-${index}`}><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>)}
+                  {Array.from({ length: Math.max(0, rowsPerPage - lines.length) }).map((_, index) => <tr key={`empty-${index}`}><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>)}
                 </tbody>
               </table>
               <div className="custody-signatures">
@@ -119,6 +121,50 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
         </div>
       </div>
     );
+  }
+
+  // A room audit creates printable transfer slips and custody-correction
+  // records; neither should masquerade as an employee's signed handover.
+  if (document.documentType === DocumentType.TRANSFER || document.documentType === DocumentType.RETURN) {
+    const isTransfer = document.documentType === DocumentType.TRANSFER;
+    const pages = chunk(document.lines, 22);
+    return <div className="-mx-4 -my-6 bg-slate-100 p-4 md:-mx-6 md:-my-8 md:p-8">
+      <style>{`@page { size: A4 portrait; margin: 10mm; }
+        @media print { header, aside, .no-print { display: none !important; }
+        body, main { background: white !important; margin: 0 !important; padding: 0 !important; max-width: none !important; }
+        .audit-print-page { width: 100% !important; min-height: 277mm !important; box-shadow: none !important; break-after: page; }
+        .audit-print-page:last-child { break-after: auto; } }`}</style>
+      <div className="no-print mx-auto mb-4 flex max-w-[210mm] flex-wrap items-center justify-between gap-3">
+        <Link href="/documents" className="rounded-lg border bg-white px-4 py-2 text-sm">السندات والحركات</Link>
+        <PrintButton/>
+      </div>
+      <div className="space-y-5 print:space-y-0" dir="rtl">
+        {pages.map((lines, pageIndex) => <section key={pageIndex} className="audit-print-page mx-auto flex min-h-[277mm] w-[210mm] max-w-full flex-col bg-white p-[11mm] text-[12px] text-black shadow-lg">
+          <div className="border-b-2 border-black pb-5 text-center">
+            <p className="text-base font-bold">جمعية المركز الإسلامي الخيرية</p>
+            <p>قسم اللوازم والمشتريات • {document.centerNameSnapshot ?? document.center.name}</p>
+            <h1 className="mt-4 text-xl font-extrabold">{isTransfer ? "سند نقل واستلام مواد بين الغرف" : "محضر تسوية عهدة ناتج عن الجرد"}</h1>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 border p-3">
+            <p><strong>رقم السند:</strong> {document.documentNo ?? "—"}</p>
+            <p><strong>التاريخ:</strong> {document.documentDate.toLocaleDateString("ar-JO")}</p>
+            <p><strong>{isTransfer ? "الغرفة المنقول منها:" : "موقع العهدة القديمة:"}</strong> {document.fromLocationNameSnapshot ?? document.fromLocation?.name ?? "—"}</p>
+            <p><strong>{isTransfer ? "الغرفة المستلمة:" : "صاحب العهدة القديمة:"}</strong> {isTransfer ? (document.toLocationNameSnapshot ?? document.toLocation?.name ?? "—") : (document.employeeNameSnapshot ?? document.employee?.fullName ?? "—")}</p>
+            <p className="col-span-2"><strong>البيان:</strong> {document.statement ?? "—"}</p>
+          </div>
+          <table className="mt-5 w-full table-fixed border-collapse text-[11px]">
+            <thead><tr className="bg-slate-100"><th className="w-[9%] border border-black p-2">م</th><th className="w-[22%] border border-black p-2">رقم المادة</th><th className="border border-black p-2">المادة</th><th className="w-[14%] border border-black p-2">الكمية</th></tr></thead>
+            <tbody>{lines.map((line) => <tr key={line.id}><td className="border border-black p-2 text-center">{line.lineNo}</td><td className="border border-black p-2 text-center font-mono">{line.itemCodeSnapshot ?? "—"}</td><td className="border border-black p-2">{line.itemNameSnapshot}</td><td className="border border-black p-2 text-center font-bold">{line.quantity}</td></tr>)}</tbody>
+          </table>
+          <p className="mt-4 text-[11px] leading-6">{isTransfer ? "أثبت هذا السند تغيير الموقع وفق الجرد الفعلي، ويُستكمل بتوقيع مسؤولي الغرفتين عند الاستلام والتسليم." : "تم تصحيح قيد العهدة القديمة بناءً على الجرد الفعلي؛ يُستكمل هذا المحضر بالتوقيع ولا يُعدّ توقيعًا آليًا عن الموظف."}</p>
+          <div className="mt-auto grid grid-cols-2 gap-8 border-t-2 border-black pt-5 leading-8">
+            <div><strong>{isTransfer ? "مسؤول الغرفة المسلّمة" : "مسؤول الجرد"}</strong><p>الاسم: .....................................</p><p>التوقيع: .....................................</p></div>
+            <div><strong>{isTransfer ? "مسؤول الغرفة المستلمة" : "صاحب العهدة / المعتمد"}</strong><p>الاسم: .....................................</p><p>التوقيع: .....................................</p></div>
+          </div>
+          <p className="mt-4 text-center text-[10px]">صفحة {pageIndex + 1} من {pages.length}</p>
+        </section>)}
+      </div>
+    </div>;
   }
 
   if (document.documentType !== DocumentType.RECEIPT && document.documentType !== DocumentType.ISSUE) notFound();

@@ -183,8 +183,8 @@ function planLine(
   }
 }
 
-export async function postInventoryDocument(documentId: string) {
-  return prisma.$transaction(async (tx) => {
+async function postInventoryDocumentInTransaction(tx: Tx, documentId: string, partOfRoomAudit = false) {
+
     const document = await tx.inventoryDocument.findUnique({
       where: { id: documentId },
       include: {
@@ -200,6 +200,9 @@ export async function postInventoryDocument(documentId: string) {
     if (!document) throw new Error("المستند غير موجود");
     if (document.status !== DocumentStatus.DRAFT) throw new Error("لا يمكن ترحيل مستند غير موجود في حالة مسودة");
     if (document.lines.length === 0) throw new Error("لا يمكن ترحيل مستند بلا مواد");
+    if (/^JRD-\d{8}-[a-f0-9]{8}-\d+$/.test(document.documentNo ?? "") && !partOfRoomAudit) {
+      throw new Error("يجب اعتماد جميع حركات جرد الغرفة دفعة واحدة من صفحة مراجعة الجرد");
+    }
 
     const isHistorical =
       document.documentType === DocumentType.HISTORICAL_RECEIPT ||
@@ -258,6 +261,31 @@ export async function postInventoryDocument(documentId: string) {
       }
     }
 
+    // Never move, issue, or write off physical items that are still entrusted
+    // to employees. Aggregate repeated lines before enforcing this guard.
+    const unassignedNeeds = new Map<string, { itemId: string; locationId: string; quantity: number }>();
+    for (const movement of planned) {
+      if (!movement.fromLocationId || (
+        movement.movementType !== MovementType.TRANSFER &&
+        movement.movementType !== MovementType.ISSUE &&
+        movement.movementType !== MovementType.ADJUST_OUT
+      )) continue;
+      const key = `${movement.itemId}:${movement.fromLocationId}`;
+      const previous = unassignedNeeds.get(key);
+      unassignedNeeds.set(key, {
+        itemId: movement.itemId,
+        locationId: movement.fromLocationId,
+        quantity: (previous?.quantity ?? 0) + movement.quantity,
+      });
+    }
+    for (const need of unassignedNeeds.values()) {
+      const physical = await locationBalance(tx, need.itemId, need.locationId);
+      const assigned = await totalAssignedAtLocation(tx, need.itemId, need.locationId);
+      if (physical - assigned < need.quantity) {
+        throw new Error(`لا يمكن نقل أو إخراج مواد في عهدة موظف. المتاح غير المعهود ${physical - assigned} والمطلوب ${need.quantity}`);
+      }
+    }
+
     if (document.postingMode === PostingMode.POST_TO_STOCK) {
       for (const movement of planned) {
         await tx.inventoryMovement.create({
@@ -292,7 +320,61 @@ export async function postInventoryDocument(documentId: string) {
         counterpartyNameSnapshot: document.counterparty?.name ?? null,
       },
     });
-  });
+}
+
+export async function postInventoryDocument(documentId: string) {
+  return prisma.$transaction((tx) => postInventoryDocumentInTransaction(tx, documentId));
+}
+
+/** Approve ALL room-audit movements atomically. A failed transfer rolls back every change. */
+export async function postRoomAuditBatch(documentIds: string[], centerId: string, roomId: string) {
+  if (documentIds.length === 0 || documentIds.length > 30 || new Set(documentIds).size !== documentIds.length)
+    throw new Error("قائمة سندات الجرد غير صالحة");
+  return prisma.$transaction(async (tx) => {
+    const documents = await tx.inventoryDocument.findMany({
+      where: { id: { in: documentIds }, centerId },
+      select: { id: true, documentNo: true, status: true, documentType: true, fromLocationId: true, toLocationId: true, employeeId: true, lines: { select: { itemId: true, quantity: true } } },
+    });
+    if (documents.length !== documentIds.length || documents.some((doc) =>
+      doc.status !== DocumentStatus.DRAFT ||
+      (doc.documentType !== DocumentType.TRANSFER && doc.documentType !== DocumentType.ADJUSTMENT && doc.documentType !== DocumentType.RETURN) ||
+      (doc.documentType === DocumentType.RETURN
+        ? !doc.employeeId || !doc.fromLocationId || doc.fromLocationId !== doc.toLocationId
+        : doc.fromLocationId !== roomId && doc.toLocationId !== roomId) ||
+      !/^JRD-\d{8}-[a-f0-9]{8}-\d+$/.test(doc.documentNo ?? ""),
+    )) throw new Error("مستندات الجرد غير مكتملة أو غير مرتبطة بهذه الغرفة");
+    const refs = new Set(documents.map((doc) => doc.documentNo!.replace(/-\d+$/, "")));
+    if (refs.size !== 1) throw new Error("لا يمكن اعتماد أكثر من جرد في عملية واحدة");
+    const reference = [...refs][0];
+    const allBatch = await tx.inventoryDocument.findMany({
+      where: { centerId, documentNo: { startsWith: reference + "-" } },
+      select: { id: true },
+    });
+    if (allBatch.length !== documentIds.length || allBatch.some((doc) => !documentIds.includes(doc.id))) {
+      throw new Error("يجب اعتماد كامل مستندات هذا الجرد دون استثناء");
+    }
+    // A custody release must belong to a physical transfer in THIS audit;
+    // prevent an unrelated employee's holdings from being released by forged ids.
+    const outbound = new Map<string, number>();
+    const released = new Map<string, number>();
+    for (const document of documents) {
+      if (document.documentType !== DocumentType.TRANSFER && document.documentType !== DocumentType.RETURN) continue;
+      for (const line of document.lines) {
+        const key = `${line.itemId}\u0000${document.fromLocationId}`;
+        const target = document.documentType === DocumentType.RETURN ? released : outbound;
+        target.set(key, (target.get(key) ?? 0) + line.quantity);
+      }
+    }
+    if ([...released].some(([key, quantity]) => quantity > (outbound.get(key) ?? 0)))
+      throw new Error("محاضر تسوية العهدة غير مرتبطة بكميات نقل مثبتة في الجرد");
+    // Release the employee custody BEFORE moving the stock. All-or-nothing.
+    const orderedIds = [...documents].sort((a, b) =>
+      Number(b.documentType === DocumentType.RETURN) - Number(a.documentType === DocumentType.RETURN),
+    ).map((doc) => doc.id);
+    const posted = [];
+    for (const id of orderedIds) posted.push(await postInventoryDocumentInTransaction(tx, id, true));
+    return posted;
+  }, { timeout: 20000 });
 }
 
 export async function getLocationItemBalance(itemId: string, locationId: string) {

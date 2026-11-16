@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import CenterSwitcher from "@/components/center-switcher";
 import OfflineStatus from "@/components/offline-status";
-import { authEnabled } from "@/lib/auth";
+import { authEnabled, isDesktopSession } from "@/lib/auth";
+import DesktopExitButton from "@/components/desktop-exit-button";
 import { logout } from "@/app/login/actions";
 import "./globals.css";
 
@@ -21,29 +23,31 @@ export const viewport: Viewport = {
 
 const operationLinks = [
   { href: "/", label: "الرئيسية" },
-  { href: "/stocktake", label: "جرد غرفة" },
-  { href: "/custody/new", label: "تسليم عهدة شخصية" },
-  { href: "/custody?mode=employees", label: "العهد الحالية" },
-  { href: "/items", label: "المواد" },
-  { href: "/reports", label: "التقارير" },
+  { href: "/locations", label: "الغرف والجرد" },
+  { href: "/items", label: "جميع المواد وأماكنها" },
+  { href: "/locations/unlocated", label: "غير محدد الموقع" },
+  { href: "/custody/new", label: "سند عهدة الموظف" },
 ];
 
 const masterDataLinks = [
   { href: "/employees", label: "الموظفون" },
-  { href: "/locations", label: "الغرف والمواقع" },
-  { href: "/documents", label: "كل السندات" },
+  { href: "/locations/manage", label: "إضافة وتعديل الغرف" },
+  { href: "/documents", label: "السندات والحركات" },
+  { href: "/reports", label: "التقارير" },
+  { href: "/custody?mode=employees", label: "العهد الحالية" },
   { href: "/labels", label: "ملصقات QR" },
 ];
 
 const mobileLinks = [
   { href: "/", label: "الرئيسية" },
-  { href: "/stocktake", label: "الجرد" },
-  { href: "/custody/new", label: "تسليم عهدة" },
-  { href: "/custody?mode=employees", label: "العهد" },
+  { href: "/locations", label: "الغرف" },
   { href: "/items", label: "المواد" },
+  { href: "/locations/unlocated", label: "موقع مجهول" },
+  { href: "/custody/new", label: "العهدة" },
 ];
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const desktop = isDesktopSession(await cookies());
   return (
     <html lang="ar" dir="rtl">
       <body className="overflow-x-hidden">
@@ -74,12 +78,15 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 ))}
               </div>
             </nav>
-            {authEnabled() ? (
+            {desktop ? <DesktopExitButton /> : authEnabled() ? (
               <form action={logout} className="mt-5">
                 <button className="w-full rounded-lg border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-white/10">تسجيل الخروج</button>
               </form>
             ) : null}
-            <div className="mt-auto border-t border-white/10 pt-4 text-center text-xs leading-6 text-slate-500">جمعية المركز الإسلامي الخيرية<br />قسم اللوازم والمشتريات</div>
+            <div className="mt-auto border-t border-white/10 pt-4 text-center text-xs leading-6 text-slate-500">جمعية المركز الإسلامي الخيرية
+              <span className="block">قسم اللوازم والمشتريات</span>
+              <span className="mt-1 block font-mono text-slate-400" dir="ltr">v0.1.10</span>
+            </div>
           </aside>
           <header className="no-print sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm lg:hidden">
             <div className="flex items-center justify-between gap-3 px-4 py-3">
