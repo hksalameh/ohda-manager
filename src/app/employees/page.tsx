@@ -21,15 +21,14 @@ export default async function EmployeesPage() {
       orderBy: { fullName: "asc" },
       include: {
         locationAssignments: {
-          where: { endsAt: null, isPrimary: true },
+          where: { endsAt: null },
           orderBy: { startsAt: "desc" },
-          take: 1,
           include: { location: true },
         },
       },
     }),
     prisma.location.findMany({
-      where: { centerId: center.id, active: true },
+      where: { centerId: center.id, active: true, OR: [{ code: null }, { code: { not: "UNLOCATED" } }] },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -42,7 +41,7 @@ export default async function EmployeesPage() {
         <div>
           <p className="text-xs font-bold text-blue-700">البيانات الأساسية</p>
           <h2 className="mt-1 text-2xl font-extrabold text-slate-900">الموظفون والعهد الشخصية</h2>
-          <p className="mt-2 text-sm text-slate-500">اختر الموظف من الجدول وعدّل الاسم أو الرقم الوظيفي أو الوظيفة أو الغرفة مباشرة، ثم احفظ السطر.</p>
+          <p className="mt-2 text-sm text-slate-500">عدّل بيانات الموظف من الجدول، أو افتح «إدارة الغرف» لربطه بعدة غرف مع اختيار غرفة رئيسية.</p>
         </div>
         <div className="flex flex-wrap gap-2 text-sm">
           <span className="rounded-full border border-slate-200 bg-white px-4 py-2 font-bold text-slate-700">الموظفون: {employees.length}</span>
@@ -54,7 +53,7 @@ export default async function EmployeesPage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="font-bold text-slate-900">إضافة موظف جديد</h3>
-            <p className="mt-1 text-xs text-slate-500">يمكن ترك الرقم الوظيفي والغرفة فارغين وإكمالهما لاحقًا من الجدول.</p>
+            <p className="mt-1 text-xs text-slate-500">يمكن تحديد غرفة رئيسية وإضافة غرف أخرى الآن، أو تعديل الربط لاحقًا من تفاصيل الموظف.</p>
           </div>
         </div>
         <form action={createEmployee} className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -77,6 +76,14 @@ export default async function EmployeesPage() {
               {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
             </select>
           </label>
+          <details className="rounded-xl border border-blue-200 bg-blue-50 p-3 md:col-span-2 xl:col-span-4">
+            <summary className="cursor-pointer text-sm font-bold text-blue-900">+ إضافة غرف أخرى للموظف (اختياري)</summary>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {locations.filter((location) => location.code !== "UNLOCATED").map((location) => <label key={location.id} className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm">
+                <input type="checkbox" name="locationIds" value={location.id} className="h-4 w-4 accent-blue-700"/>{location.name}
+              </label>)}
+            </div>
+          </details>
           <div className="md:col-span-2 xl:col-span-4 flex justify-end">
             <button type="submit" className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-800">إضافة الموظف</button>
           </div>
@@ -108,7 +115,8 @@ export default async function EmployeesPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {employees.map((employee, index) => {
-                  const currentLocation = employee.locationAssignments[0]?.location;
+                  const currentLocation = employee.locationAssignments.find((assignment) => assignment.isPrimary)?.location;
+                  const linkedRooms = employee.locationAssignments.filter((assignment) => assignment.location.active);
                   const formId = `employee-${employee.id}`;
                   return (
                     <tr key={employee.id} className="align-middle hover:bg-blue-50/40">
@@ -132,17 +140,19 @@ export default async function EmployeesPage() {
                       </td>
                       <td className="px-3 py-3">
                         <select form={formId} name="locationId" defaultValue={currentLocation?.id ?? ""} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
-                          <option value="">بدون غرفة محددة</option>
+                          <option value="">الإبقاء على الغرف الحالية</option>
                           {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
                         </select>
+                        <p className="mt-1 text-xs text-slate-500">{linkedRooms.length ? `كل الغرف: ${linkedRooms.map((entry) => entry.location.name).join("، ")}` : "لا توجد غرف مرتبطة"}</p>
                       </td>
                       <td className="px-3 py-3">
                         <div className="flex items-center justify-center gap-2">
                           <button form={formId} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800">حفظ</button>
                           <Link href={`/employees/${employee.id}`} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-800 hover:bg-blue-100">فتح العهدة</Link>
+                          <Link href={`/employees/${employee.id}`} className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-bold text-teal-800 hover:bg-teal-100">إدارة الغرف</Link>
                           <form action={createCustodyDraftFromRoom}>
                             <input type="hidden" name="employeeId" value={employee.id} />
-                            <button disabled={!currentLocation} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-white disabled:text-slate-300">تسليم عهدة</button>
+                            <button disabled={!currentLocation} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-white disabled:text-slate-300">تسليم من الرئيسية</button>
                           </form>
                         </div>
                       </td>

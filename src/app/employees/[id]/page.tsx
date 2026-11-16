@@ -3,11 +3,16 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getEmployeeCustodyBalances } from "@/lib/custody-query";
 import { createReturnDraftForLocation } from "./actions";
+import { updateEmployeeRooms } from "../actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EmployeeDetailPage({ params, searchParams }: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ roomsSaved?: string; roomsError?: string }>;
+}) {
   const { id } = await params;
+  const query = await searchParams;
   const employee = await prisma.employee.findUnique({
     where: { id },
     include: {
@@ -37,7 +42,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     }),
     prisma.location.findMany({ where: { id: { in: locationIds } } }),
     prisma.location.findMany({
-      where: { centerId: employee.centerId, active: true },
+      where: { centerId: employee.centerId, active: true, OR: [{ code: null }, { code: { not: "UNLOCATED" } }] },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -52,6 +57,8 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
   }
 
   const currentAssignment = employee.locationAssignments.find((assignment) => assignment.isPrimary && !assignment.endsAt);
+  const activeRoomAssignments = employee.locationAssignments.filter((assignment) => !assignment.endsAt && assignment.location.active && assignment.location.code !== "UNLOCATED");
+  const activeRoomIds = new Set(activeRoomAssignments.map((assignment) => assignment.locationId));
   const totalCustodyPieces = balances.reduce((sum, balance) => sum + balance.quantity, 0);
 
   return (
@@ -63,11 +70,34 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           <p className="mt-2 text-sm text-slate-500">
             {employee.employeeNo ? `الرقم الوظيفي: ${employee.employeeNo}` : "بدون رقم وظيفي"}
             {employee.jobTitle ? ` • ${employee.jobTitle}` : ""}
-            {currentAssignment ? ` • الموقع الحالي: ${currentAssignment.location.name}` : ""}
+            {currentAssignment ? ` • الغرفة الرئيسية: ${currentAssignment.location.name}` : ""}
           </p>
         </div>
         <Link href="/employees" className="rounded-lg border border-slate-300 px-4 py-2 text-center text-sm font-medium hover:bg-slate-50">العودة للموظفين</Link>
       </div>
+
+      <section className="rounded-2xl border border-blue-200 bg-white p-5 shadow-sm">
+        <h3 className="text-lg font-extrabold text-slate-900">الغرف المرتبطة بالموظف</h3>
+        <p className="mt-2 text-sm leading-7 text-slate-600">يمكن للموظف أن يتولى أكثر من غرفة. حدد كل الغرف التي يشرف عليها، واختر غرفة رئيسية واحدة. تغيير الربط لا ينقل المواد ولا يكرر العهدة.</p>
+        {query.roomsSaved !== undefined && <p className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-800">تم حفظ ربط الموظف بـ {query.roomsSaved} غرفة بنجاح.</p>}
+        {query.roomsError && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-800">{query.roomsError}</p>}
+        <form action={updateEmployeeRooms} className="mt-4">
+          <input type="hidden" name="employeeId" value={employee.id}/>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {allLocations.map((location) => <div key={location.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <label className="flex items-center gap-2 font-bold text-slate-900">
+                <input type="checkbox" name="locationIds" value={location.id} defaultChecked={activeRoomIds.has(location.id)} className="h-5 w-5 accent-teal-700"/>
+                <span>{location.name}</span>
+              </label>
+              <label className="mt-2 flex items-center gap-2 pr-7 text-xs text-slate-600">
+                <input type="radio" name="primaryLocationId" value={location.id} defaultChecked={currentAssignment?.locationId === location.id} className="accent-teal-700"/>
+                جعلها الغرفة الرئيسية
+              </label>
+            </div>)}
+          </div>
+          <button type="submit" className="mt-4 rounded-xl bg-blue-700 px-6 py-3 text-sm font-extrabold text-white hover:bg-blue-800">حفظ غرف الموظف</button>
+        </form>
+      </section>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

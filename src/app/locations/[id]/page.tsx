@@ -7,6 +7,7 @@ import { getAssignedCustodyTotalsAtLocation, getEmployeeCustodyBalances } from "
 import RoomCustodyActions from "@/components/room-custody-actions";
 
 import ClearAuditDraft from "./audit/review/clear-audit-draft";
+import { renameLocation } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export default async function RoomDetailsPage({
   params, searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ audit?: string; error?: string }>;
+  searchParams: Promise<{ audit?: string; error?: string; renamed?: string; renameError?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const center = await getCurrentCenter();
@@ -27,7 +28,7 @@ export default async function RoomDetailsPage({
     getCenterInventoryBalances(center.id),
     getAssignedCustodyTotalsAtLocation(room.id),
     prisma.employeeLocationAssignment.findMany({
-      where: { locationId: room.id, endsAt: null, isPrimary: true, employee: { centerId: center.id, active: true } },
+      where: { locationId: room.id, endsAt: null, employee: { centerId: center.id, active: true } },
       include: { employee: true }, orderBy: { startsAt: "desc" },
     }),
     prisma.inventoryDocument.findMany({
@@ -71,6 +72,18 @@ export default async function RoomDetailsPage({
         <Link href="/items" className="rounded-xl border border-white/30 px-5 py-3 text-sm font-bold text-white">جميع المواد</Link>
       </div>
     </header>
+
+    <section className="rounded-2xl border border-blue-200 bg-white p-5 shadow-sm">
+      <h2 className="text-lg font-extrabold text-slate-900">تعديل اسم الغرفة</h2>
+      <p className="mt-1 text-xs text-slate-600">تغيير الاسم لا ينقل المواد ولا يغيّر سجلات العهدة؛ يظل رقم الغرفة نفسه.</p>
+      {query.renamed && <p className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-800">تم حفظ الاسم الجديد للغرفة بنجاح.</p>}
+      {query.renameError && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-800">{query.renameError}</p>}
+      <form action={renameLocation} className="mt-3 flex flex-wrap gap-2">
+        <input type="hidden" name="locationId" value={room.id}/>
+        <input name="name" required maxLength={150} defaultValue={room.name} className="min-w-52 flex-1 rounded-xl border border-slate-300 px-4 py-2.5 font-bold text-slate-900" aria-label="اسم الغرفة الجديد"/>
+        <button className="rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-extrabold text-white">حفظ اسم الغرفة</button>
+      </form>
+    </section>
 
     <section className="grid gap-3 md:grid-cols-3" aria-label="خطوات إكمال جرد الغرفة وطباعة العهدة">
       <Link href={auditUrl} className="rounded-2xl border border-teal-200 bg-teal-50 p-5 hover:border-teal-500"><strong className="block text-lg text-teal-950">1. جرد الموجود والمفقود</strong><p className="mt-2 text-sm leading-6 text-teal-900">افحص كل مادة، وأدخل العدد الموجود فعليًا في الغرفة.</p><span className="mt-3 inline-block font-extrabold text-teal-800">فتح الجرد</span></Link>

@@ -19,7 +19,7 @@ export default async function HomePage() {
   if (!center) return <p>لا يوجد مركز مفعّل بعد.</p>;
   const [itemsCount, roomsCount, employeesCount, balances, unlocated] = await Promise.all([
     prisma.item.count({ where: { active: true } }),
-    prisma.location.count({ where: { centerId: center.id, active: true, NOT: { code: "UNLOCATED" } } }),
+    prisma.location.count({ where: { centerId: center.id, active: true, OR: [{ code: null }, { code: { not: "UNLOCATED" } }] } }),
     prisma.employee.count({ where: { centerId: center.id, active: true } }),
     getCenterInventoryBalances(center.id),
     prisma.location.findFirst({ where: { centerId: center.id, code: "UNLOCATED" } }),

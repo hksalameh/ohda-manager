@@ -22,14 +22,13 @@ export default async function PersonalCustodyPage({
     orderBy: { fullName: "asc" },
     include: {
       locationAssignments: {
-        where: { isPrimary: true, endsAt: null },
-        take: 1,
+        where: { endsAt: null, location: { active: true, OR: [{ code: null }, { code: { not: "UNLOCATED" } }] } },
         orderBy: { startsAt: "desc" },
         include: { location: true },
       },
     },
   });
-  const locationIds = [...new Set(employees.map((e) => e.locationAssignments[0]?.locationId).filter((x): x is string => !!x))];
+  const locationIds = [...new Set(employees.flatMap((e) => e.locationAssignments.map((a) => a.locationId)))];
   const [balances, movements, pendingAudits] = await Promise.all([
     getCenterInventoryBalances(center.id),
     locationIds.length ? prisma.inventoryMovement.findMany({
@@ -56,8 +55,7 @@ export default async function PersonalCustodyPage({
     if (movement.fromEmployeeId && movement.fromLocationId) change(movement.fromLocationId, movement.itemId, -movement.quantity);
   }
   const waitingRooms = new Set(pendingAudits.flatMap((audit) => [audit.fromLocationId, audit.toLocationId]).filter((id): id is string => !!id));
-  const rows = employees.map((employee) => {
-    const assignment = employee.locationAssignments[0];
+  const rows = employees.flatMap((employee) => employee.locationAssignments.map((assignment) => {
     const roomId = assignment?.locationId;
     const existing = roomId ? currentCustodyAtRoom(employee.id, roomId, movements) : new Map<string, number>();
     const physical = roomId ? balances.itemLocationTotals : new Map<string, Map<string, number>>();
@@ -74,7 +72,7 @@ export default async function PersonalCustodyPage({
       unassigned,
       pending: roomId ? waitingRooms.has(roomId) : false,
     };
-  });
+  }));
 
   return <div className="mx-auto max-w-6xl space-y-5">
     <header className="rounded-3xl bg-slate-950 p-6 text-white md:p-8">
@@ -96,7 +94,7 @@ export default async function PersonalCustodyPage({
       <div className="border-b p-5"><h2 className="text-xl font-extrabold">الموظفون وعهدتهم الحالية</h2><p className="mt-1 text-sm text-slate-500">طباعة العهدة السابقة لا تغيّر الأرصدة؛ أما إضافة المواد الجديدة فتتطلب موافقتك وتُسجل حركة تسليم رسمية قبل طباعة سند شامل.</p></div>
       <div className="divide-y divide-slate-100">
         {rows.map(({ employee, assignment, pieces, types, unassigned, pending }) =>
-          <article key={employee.id} className="flex flex-wrap items-center justify-between gap-3 p-5">
+          <article key={`${employee.id}:${assignment.locationId}`} className="flex flex-wrap items-center justify-between gap-3 p-5">
             <div>
               <strong className="text-lg text-slate-900">{employee.fullName}</strong>
               <p className="mt-1 text-sm text-slate-500">{assignment?.location.name ?? "لم تُربط غرفة"} • {employee.employeeNo ?? "بلا رقم وظيفي"}</p>

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentCenter } from "@/lib/current-center";
 import { ensureCustodyTemplate } from "@/lib/print-templates";
+import { saveEmployeeRoomsInTransaction, setPrimaryEmployeeRoomInTransaction } from "@/lib/employee-room-assignments";
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -16,6 +17,7 @@ export async function createEmployee(formData: FormData) {
   const employeeNo = text(formData, "employeeNo") || null;
   const jobTitle = text(formData, "jobTitle") || null;
   const locationId = text(formData, "locationId") || null;
+  const selectedRooms = formData.getAll("locationIds").filter((entry): entry is string => typeof entry === "string" && !!entry.trim());
 
   if (!fullName) throw new Error("اسم الموظف مطلوب");
 
@@ -48,14 +50,11 @@ export async function createEmployee(formData: FormData) {
       },
     });
 
-    if (locationId) {
-      await tx.employeeLocationAssignment.create({
-        data: {
-          employeeId: employee.id,
-          locationId,
-          startsAt: new Date(),
-          isPrimary: true,
-        },
+    if (locationId || selectedRooms.length) {
+      const rooms = [...new Set([...selectedRooms, ...(locationId ? [locationId] : [])])];
+      await saveEmployeeRoomsInTransaction(tx, {
+        centerId: center.id, employeeId: employee.id,
+        locationIds: rooms, primaryLocationId: locationId || rooms[0],
       });
     }
   });
@@ -109,8 +108,7 @@ export async function updateEmployee(formData: FormData) {
   }
 
   const currentAssignment = employee.locationAssignments[0];
-  const locationChanged = (currentAssignment?.locationId ?? null) !== locationId;
-  const now = new Date();
+  const locationChanged = !!locationId && currentAssignment?.locationId !== locationId;
 
   await prisma.$transaction(async (tx) => {
     await tx.employee.update({
@@ -119,21 +117,7 @@ export async function updateEmployee(formData: FormData) {
     });
 
     if (locationChanged) {
-      await tx.employeeLocationAssignment.updateMany({
-        where: { employeeId, isPrimary: true, endsAt: null },
-        data: { endsAt: now },
-      });
-
-      if (locationId) {
-        await tx.employeeLocationAssignment.create({
-          data: {
-            employeeId,
-            locationId,
-            startsAt: now,
-            isPrimary: true,
-          },
-        });
-      }
+      await setPrimaryEmployeeRoomInTransaction(tx, { centerId: center.id, employeeId, locationId });
     }
   });
 
@@ -157,18 +141,40 @@ export async function changeEmployeePrimaryLocation(formData: FormData) {
   ]);
   if (!employee || !location) throw new Error("الموظف أو الموقع غير صالح");
 
-  const now = new Date();
   await prisma.$transaction(async (tx) => {
-    await tx.employeeLocationAssignment.updateMany({
-      where: { employeeId, isPrimary: true, endsAt: null },
-      data: { endsAt: now },
-    });
-    await tx.employeeLocationAssignment.create({
-      data: { employeeId, locationId, startsAt: now, isPrimary: true },
-    });
+    await setPrimaryEmployeeRoomInTransaction(tx, { centerId: center.id, employeeId, locationId });
   });
 
   revalidatePath("/employees");
+  revalidatePath("/locations");
+  revalidatePath("/custody");
+}
+
+export async function updateEmployeeRooms(formData: FormData) {
+  const employeeId = text(formData, "employeeId");
+  if (!/^[a-zA-Z0-9_-]+$/.test(employeeId)) throw new Error("رقم الموظف غير صالح");
+  const url = `/employees/${employeeId}`;
+  const center = await getCurrentCenter();
+  if (!center) throw new Error("لا يوجد مركز مفعّل");
+  const ids = formData.getAll("locationIds").filter((id): id is string => typeof id === "string");
+  const primaryId = text(formData, "primaryLocationId") || null;
+  let count: number;
+  try {
+    const result = await prisma.$transaction((tx) => saveEmployeeRoomsInTransaction(tx, {
+      centerId: center.id, employeeId, locationIds: ids, primaryLocationId: primaryId,
+    }));
+    count = result.count;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "تعذّر حفظ غرف الموظف";
+    redirect(`${url}?roomsError=${encodeURIComponent(message)}`);
+  }
+  revalidatePath("/employees");
+  revalidatePath(url);
+  revalidatePath("/custody");
+  revalidatePath("/custody/new");
+  revalidatePath("/locations");
+  revalidatePath("/locations/manage");
+  redirect(`${url}?roomsSaved=${count}`);
 }
 
 export async function createCustodyDraftFromRoom(formData: FormData) {

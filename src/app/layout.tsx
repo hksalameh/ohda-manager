@@ -83,7 +83,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 <button className="w-full rounded-lg border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-white/10">تسجيل الخروج</button>
               </form>
             ) : null}
-            <div className="mt-auto border-t border-white/10 pt-4 text-center text-xs leading-6 text-slate-500">جمعية المركز الإسلامي الخيرية<br />قسم اللوازم والمشتريات</div>
+            <div className="mt-auto border-t border-white/10 pt-4 text-center text-xs leading-6 text-slate-500">جمعية المركز الإسلامي الخيرية
+              <span className="block">قسم اللوازم والمشتريات</span>
+              <span className="mt-1 block font-mono text-slate-400" dir="ltr">v0.1.10</span>
+            </div>
           </aside>
           <header className="no-print sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm lg:hidden">
             <div className="flex items-center justify-between gap-3 px-4 py-3">

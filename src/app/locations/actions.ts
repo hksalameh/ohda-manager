@@ -2,6 +2,7 @@
 
 import { LocationType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentCenter } from "@/lib/current-center";
 
@@ -89,4 +90,30 @@ export async function updateLocation(formData: FormData) {
   revalidatePath("/employees");
   revalidatePath("/custody");
   revalidatePath("/");
+}
+
+/** Simple in-room editor: renaming never changes the location ID or stock movements. */
+export async function renameLocation(formData: FormData) {
+  const id = text(formData, "locationId");
+  const name = text(formData, "name");
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error("معرّف الغرفة غير صالح");
+  const url = `/locations/${id}`;
+  const center = await getCurrentCenter();
+  if (!center) throw new Error("لا يوجد مركز مفعّل");
+  try {
+    if (!name || name.length > 150) throw new Error("اكتب اسمًا صحيحًا للغرفة لا يتجاوز 150 حرفًا");
+    if (name === "مواد غير محددة الموقع") throw new Error("هذا اسم محجوز في النظام");
+    const current = await prisma.location.findFirst({
+      where: { id, centerId: center.id, active: true }, select: { id: true, code: true },
+    });
+    if (!current || current.code === "UNLOCATED") throw new Error("لا يمكن تغيير اسم هذه الغرفة");
+    await ensureUnique(center.id, name, null, id);
+    await prisma.location.update({ where: { id }, data: { name } });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "تعذّر تعديل اسم الغرفة";
+    redirect(`${url}?renameError=${encodeURIComponent(message)}`);
+  }
+  for (const path of [url, "/locations", "/locations/manage", "/employees", "/custody", "/custody/new", "/documents", "/stocktake"])
+    revalidatePath(path);
+  redirect(`${url}?renamed=1`);
 }

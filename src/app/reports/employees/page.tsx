@@ -26,9 +26,8 @@ export default async function EmployeeCustodyReport({
     orderBy: { fullName: "asc" },
     include: {
       locationAssignments: {
-        where: { endsAt: null, isPrimary: true },
+        where: { endsAt: null },
         orderBy: { startsAt: "desc" },
-        take: 1,
         include: { location: true },
       },
     },
@@ -73,7 +72,7 @@ export default async function EmployeeCustodyReport({
   }
 
   const totalQuantity = rows.reduce((sum, row) => sum + row.quantity, 0);
-  const currentRoom = employee?.locationAssignments[0]?.location.name ?? "—";
+  const currentRoom = employee?.locationAssignments.map((assignment) => assignment.location.name).join("، ") || "—";
 
   return (
     <div className="space-y-6">
@@ -101,7 +100,7 @@ export default async function EmployeeCustodyReport({
           <div className="mb-4 grid gap-3 text-sm sm:grid-cols-4">
             <div className="rounded-xl bg-slate-50 p-3"><span className="text-slate-500">الموظف</span><div className="mt-1 font-bold">{employee.fullName}</div></div>
             <div className="rounded-xl bg-slate-50 p-3"><span className="text-slate-500">الرقم الوظيفي</span><div className="mt-1 font-bold">{employee.employeeNo ?? "—"}</div></div>
-            <div className="rounded-xl bg-slate-50 p-3"><span className="text-slate-500">الغرفة الحالية</span><div className="mt-1 font-bold">{currentRoom}</div></div>
+            <div className="rounded-xl bg-slate-50 p-3"><span className="text-slate-500">الغرف المرتبطة</span><div className="mt-1 font-bold">{currentRoom}</div></div>
             <div className="rounded-xl bg-slate-50 p-3"><span className="text-slate-500">إجمالي القطع في العهدة</span><div className="mt-1 text-xl font-bold">{totalQuantity}</div></div>
           </div>
 

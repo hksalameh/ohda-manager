@@ -34,9 +34,8 @@ export default async function CustodyPage({
       orderBy: { fullName: "asc" },
       include: {
         locationAssignments: {
-          where: { endsAt: null, isPrimary: true },
+          where: { endsAt: null },
           orderBy: { startsAt: "desc" },
-          take: 1,
           include: { location: true },
         },
       },
@@ -190,13 +189,13 @@ export default async function CustodyPage({
                 <tbody className="divide-y divide-slate-100">
                   {filteredEmployees.map((employee) => {
                     const stat = employeeStats.get(employee.id);
-                    const location = employee.locationAssignments[0]?.location;
+                    const location = employee.locationAssignments.find((assignment) => assignment.isPrimary)?.location;
                     const selected = selectedEmployee?.id === employee.id;
                     return <tr key={employee.id} className={selected ? "bg-blue-50" : "hover:bg-slate-50"}>
                       <td className="px-4 py-3 font-bold text-slate-900">{employee.fullName}</td>
                       <td className="px-4 py-3">{employee.employeeNo ?? "—"}</td>
                       <td className="px-4 py-3">{employee.jobTitle ?? "—"}</td>
-                      <td className="px-4 py-3">{location?.name ?? "—"}</td>
+                      <td className="px-4 py-3">{employee.locationAssignments.map((assignment) => assignment.location.name).join("، ") || location?.name || "—"}</td>
                       <td className="px-4 py-3 text-center font-bold">{stat?.items.size ?? 0}</td>
                       <td className="px-4 py-3 text-center font-bold">{stat?.pieces ?? 0}</td>
                       <td className="px-4 py-3 text-left"><Link href={`/custody?mode=employees&employeeId=${employee.id}`} className={`rounded-lg px-4 py-2 text-xs font-bold ${selected ? "bg-slate-900 text-white" : "bg-blue-700 text-white"}`}>{selected ? "محدد" : "اختيار"}</Link></td>
@@ -209,7 +208,7 @@ export default async function CustodyPage({
           </section>
 
           {selectedEmployee ? (() => {
-            const currentLocation = selectedEmployee.locationAssignments[0]?.location;
+            const currentLocation = selectedEmployee.locationAssignments.find((assignment) => assignment.isPrimary)?.location;
             const stat = employeeStats.get(selectedEmployee.id);
             return <section className="rounded-2xl border border-blue-200 bg-white p-5 shadow-sm">
               <div className="flex flex-col gap-2 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -224,13 +223,13 @@ export default async function CustodyPage({
                       <tr><th className="w-44 bg-slate-50 px-4 py-3 text-right">اسم الموظف</th><td className="px-4 py-3"><input name="fullName" required defaultValue={selectedEmployee.fullName} className="w-full rounded-lg border border-slate-300 px-3 py-2" /></td></tr>
                       <tr><th className="bg-slate-50 px-4 py-3 text-right">الرقم الوظيفي</th><td className="px-4 py-3"><input name="employeeNo" defaultValue={selectedEmployee.employeeNo ?? ""} className="w-full rounded-lg border border-slate-300 px-3 py-2" /></td></tr>
                       <tr><th className="bg-slate-50 px-4 py-3 text-right">المسمى الوظيفي</th><td className="px-4 py-3"><input name="jobTitle" defaultValue={selectedEmployee.jobTitle ?? ""} className="w-full rounded-lg border border-slate-300 px-3 py-2" /></td></tr>
-                      <tr><th className="bg-slate-50 px-4 py-3 text-right">الغرفة / الموقع</th><td className="px-4 py-3"><select name="locationId" defaultValue={currentLocation?.id ?? ""} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"><option value="">غير مرتبط بغرفة</option>{locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></td></tr>
+                      <tr><th className="bg-slate-50 px-4 py-3 text-right">الغرفة الرئيسية</th><td className="px-4 py-3"><select name="locationId" defaultValue={currentLocation?.id ?? ""} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"><option value="">الإبقاء على الغرف الحالية</option>{locations.filter((location) => location.code !== "UNLOCATED").map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></td></tr>
                     </tbody>
                   </table>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-bold text-white">حفظ التعديلات</button>
-                  <Link href={`/employees/${selectedEmployee.id}`} className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700">إرجاع / إدارة العهدة</Link>
+                  <Link href={`/employees/${selectedEmployee.id}`} className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700">إدارة غرف الموظف وعهدته</Link>
                   <Link href="/custody?mode=employees" className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium">إلغاء الاختيار</Link>
                 </div>
               </form>

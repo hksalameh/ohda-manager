@@ -23,13 +23,12 @@ export default async function LocationsPage() {
 
   const [locations, assignments, balances] = await Promise.all([
     prisma.location.findMany({
-      where: { centerId: center.id, active: true, NOT: { code: "UNLOCATED" } },
+      where: { centerId: center.id, active: true, OR: [{ code: null }, { code: { not: "UNLOCATED" } }] },
       orderBy: { name: "asc" },
     }),
     prisma.employeeLocationAssignment.findMany({
       where: {
         endsAt: null,
-        isPrimary: true,
         location: { centerId: center.id, active: true },
         employee: { active: true },
       },

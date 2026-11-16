@@ -24,7 +24,7 @@ export async function createCurrentCustodyDocument(input: {
         where: { id: input.roomId, centerId: input.centerId, active: true },
       }),
       tx.employeeLocationAssignment.findFirst({
-        where: { employeeId: input.employeeId, locationId: input.roomId, isPrimary: true, endsAt: null },
+        where: { employeeId: input.employeeId, locationId: input.roomId, endsAt: null },
       }),
       tx.inventoryDocument.count({
         where: {
